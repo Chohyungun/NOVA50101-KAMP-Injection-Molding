@@ -9,14 +9,14 @@
 
 ### D-013 — Autoencoder(AE) 미재현 사유 (2026-05-10)
 - **결정:** 가이드북 §2.3의 AE(Autoencoder) 단계를 재현하지 않는다. 대신 StandardScaler + SMOTE 전처리 ablation으로 동일한 "비지도 사전처리" 역할을 대체한다.
-- **근거:** AGENT_INSTRUCTIONS §5.6 — Transformer·BERT·GNN·LSTM과 함께 Autoencoder는 강의 14개 알고리즘 목록에 없음. 강의 범위 밖 기법. 가이드북 AE의 anomaly detection 역할은 SMOTE + 클래스 불균형 처리로 충분히 커버됨. decisions.md에 공식 기록하여 심사자 질의 대비.
+- **근거:** AGENT_INSTRUCTIONS §5.6 — Transformer·BERT·GNN·LSTM과 함께 Autoencoder는 강의 14개 알고리즘 목록에 없음. 강의 범위 밖 기법. 가이드북 AE의 anomaly detection 역할은 SMOTE + 클래스 불균형 처리로 충분히 커버된다. decisions.md에 공식 기록하여 심사자 질의에 대비.
 
 ---
 
 ## Phase 1 + 2 EDA
 
 ### D-001 — 886K 행의 의미 재정의 (2026-05-10)
-- **결정:** "886K행 × 27변수"는 8개 CSV 총합. 지도 학습 주 대상은 `labeled_data.csv` (7,996행) + `supervised_label_cn7.csv` (6,736행). `unlabeled_data.csv` (795,315행)은 Phase 3+ 준지도 학습 옵션으로 보류.
+- **결정:** "886K행 × 27변수"는 8개 CSV 총합이다. 지도 학습 주 대상은 `labeled_data.csv` (7,996행) + `supervised_label_cn7.csv` (6,736행). `unlabeled_data.csv` (795,315행)은 Phase 3+ 준지도 학습 옵션으로 보류.
 - **근거:** TERM_PROJECT_GUIDELINE.md §1.1의 파일 설명과 실제 데이터 shape 확인.
 
 ### D-002 — PassOrFail 인코딩 통일 (2026-05-10)
@@ -56,7 +56,7 @@
 - **근거:** ROC-AUC 0.9311(최고) + PR-AUC std 0.0554(가장 안정적). RobustScaler는 LR saga solver 수렴 실패로 탈락. 사용자 선택 A(labeled_data 단독) 기준.
 
 ### D-006 — Phase 3 기준 데이터셋: labeled_data 단독 (2026-05-10)
-- **결정:** Phase 3(선형 베이스라인)부터는 `labeled_data.csv` (7,996행) 단독 사용. `supervised_label_cn7.csv` 합산은 사용하지 않는다.
+- **결정:** Phase 3(선형 베이스라인)부터는 `labeled_data.csv` (7,996행) 단독 사용. `supervised_label_cn7.csv` 합산은 쓰지 않는다.
 - **근거:** 사용자 명시 선택(a). CN7·RG3 분포가 22/24 변수에서 유의하게 달라 합산 시 분포 왜곡 가능. 가이드북과 1:1 비교 가능한 단일 데이터셋 유지. Phase 4에서 product flag 추가 통합 분석은 ablation 옵션으로 별도 시험.
 
 ### D-005 — SVM RBF 서브샘플 전략 예고 (2026-05-10)

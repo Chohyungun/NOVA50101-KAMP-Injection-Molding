@@ -41,14 +41,14 @@
 - fold별 불량률 편차: 최대 **0.0496 pp** (< 1 pp 기준 통과)
 - 인덱스 파일: `data/splits/fold_0~4.npy` (영구 저장, 모든 Phase 공유)
 
-### 핵심 인사이트 1줄
+### 핵심 1줄
 
-> 유효 변수 26개, 불량률 0.89%, 강한 상관 짝 34쌍, CN7·RG3 분포 22/24 유의차이 → **Phase 3 기본은 labeled_data 단독, Phase 4에서 product 통합/분리 ablation 결정.**
+유효 변수 26개, 불량률 0.89%, 강한 상관 짝 34쌍, CN7·RG3 분포 22/24 유의차이 → **Phase 3 기본은 labeled_data 단독, Phase 4에서 product 통합/분리 ablation 결정.**
 
 ### 가이드북 비교
 
 - 가이드북이 "0"으로 표기한 11개 변수(Mold_Temp_1,2,5-12 + Barrel_Temp_7)가 실측과 100% 일치.
-- 가이드북 §2.3의 "AE/SVM/DNN 차례 학습" 흐름 대비, 우리는 **단계별 ablation(전처리→선형→차원축소→앙상블/NN→스태킹)**으로 어느 단계가 성능을 좌우하는지 분리 측정. — originality의 1차 차별점.
+- 가이드북 §2.3의 "AE/SVM/DNN 차례 학습" 흐름 대비, 이 프로젝트는 **단계별 ablation(전처리→선형→차원축소→앙상블/NN→스태킹)**으로 어느 단계가 성능을 좌우하는지 분리 측정했다. originality의 1차 차별점.
 
 ### Phase 2 진입 조건 (DoD 체크)
 
@@ -93,14 +93,14 @@
 | robust | adasyn | 0.7777 | 0.0687 | 0.1584 | 0.0710 | 0.0300 | 0.0030 |
 | robust | none | 0.3406 | 0.0843 | 0.1271 | 0.0468 | 0.2694 | 0.0975 |
 
-> **굵은 행 = Phase 3+ 확정 전처리 (StandardScaler + SMOTE)**
+굵은 행 = Phase 3+ 확정 전처리 (StandardScaler + SMOTE)
 
-### 핵심 발견
+### 발견 사항
 
-1. **StandardScaler가 RobustScaler를 압도.** Robust+None ROC-AUC=0.3406은 saga solver가 극단적 불균형 데이터에서 수렴 실패한 결과.
+1. **StandardScaler가 RobustScaler를 압도.** Robust+None ROC-AUC=0.3406은 saga solver가 극단적 불균형 데이터에서 수렴 실패한 결과다.
 2. **불균형 처리 효과 (Standard 기준):** SMOTE(0.9311) > class_weight(0.9261) > none(0.9076) > ADASYN(0.9155) > undersample(0.9064) — ROC-AUC 기준.
-3. **PR-AUC 안정성:** standard+none이 PR-AUC 0.2666으로 명목 최고이나 std=0.1145로 불안정. standard+smote는 PR-AUC 0.2413, std=0.0554로 절반 이하의 분산.
-4. **가이드북 비교:** 가이드북 §2.3은 단일 표준화만 적용 후 모델 학습. 이 ablation 단계가 가이드북에 빠진 단계. 불균형 처리가 ROC-AUC를 최대 +0.024(none→SMOTE) 개선.
+3. **PR-AUC 안정성:** standard+none이 PR-AUC 0.2666으로 명목 최고이나 std=0.1145로 불안정하다. standard+smote는 PR-AUC 0.2413에 std=0.0554로 분산이 절반 이하.
+4. **가이드북 비교:** 가이드북 §2.3은 단일 표준화만 적용 후 모델 학습. 이 ablation 단계는 가이드북에 없다. 불균형 처리가 ROC-AUC를 최대 +0.024(none→SMOTE) 끌어올렸다.
 
 ### 확정 전처리 (Phase 3+)
 
@@ -109,9 +109,9 @@ Scaler  : StandardScaler (fit on train, transform val)
 Resample: SMOTE (random_state=42, k_neighbors=5, fit on scaled train only)
 ```
 
-### 핵심 인사이트 1줄
+### 핵심 1줄
 
-> **StandardScaler + SMOTE가 ROC-AUC 0.9311로 최고, PR-AUC 분산 절반으로 안정적 → Phase 3 확정 전처리; 불균형 처리 ablation이 가이드북 대비 +0.024 ROC-AUC 개선 근거 확보.**
+**StandardScaler + SMOTE가 ROC-AUC 0.9311로 최고, PR-AUC 분산은 절반 수준으로 안정적 → Phase 3 확정 전처리. 불균형 처리 ablation이 가이드북 대비 +0.024 ROC-AUC 개선 근거.**
 
 ---
 
@@ -142,18 +142,18 @@ Resample: SMOTE (random_state=42, k_neighbors=5, fit on scaled train only)
 | LDA | shrinkage=auto | 0.9078 ±0.0128 | 0.1447 ±0.0523 | 0.0813 |
 | SVM-linear | C=10 | 0.9074 ±0.0225 | 0.3434 ±0.1094 | 0.0000 |
 
-> **굵은 행 = Phase 4 앙상블 비교 기준선 (QDA)**
+굵은 행 = Phase 4 앙상블 비교 기준선 (QDA)
 
-### 핵심 발견
+### 발견 사항
 
-1. **ROC-AUC 기준:** QDA(0.9344) ≈ LR-L1/L2(0.9342) >> SVM (0.90~0.93). 선형 결정경계로 ROC-AUC 0.93+ 달성.
-2. **PR-AUC 기준:** QDA(0.35) > SVM-linear(0.34) > LR(0.27) > LDA(0.13) > SVM-RBF(0.08). QDA의 클래스별 공분산 모델링이 불량 포착에 유리.
-3. **SVM-RBF 역설:** ROC-AUC 3위지만 PR-AUC 최저 → 임계값 0.5에서 minority 예측 실패. Stacking base learner로는 사용 가능.
-4. **가이드북 비교:** 가이드북 §2.3의 "SVM best" 주장과 달리, QDA가 전 지표 1위. 가이드북 미시도 모델(QDA)이 숨겨진 강자 → ablation의 가치 정량화.
+1. **ROC-AUC 기준:** QDA(0.9344) ≈ LR-L1/L2(0.9342) >> SVM (0.90~0.93). 선형 결정경계만으로 ROC-AUC 0.93+가 나왔다.
+2. **PR-AUC 기준:** QDA(0.35) > SVM-linear(0.34) > LR(0.27) > LDA(0.13) > SVM-RBF(0.08). QDA의 클래스별 공분산 모델링이 불량 포착에 유리하다.
+3. **SVM-RBF 역설:** ROC-AUC 3위지만 PR-AUC 최저 → 임계값 0.5에서 minority 예측 실패. Stacking base learner로는 활용 가능.
+4. **가이드북 비교:** 가이드북 §2.3의 "SVM best" 주장과 달리, QDA가 전 지표 1위였다. 가이드북이 시도하지 않은 모델이 숨겨진 강자 → ablation의 가치가 수치로 드러난 지점.
 
-### 핵심 인사이트 1줄
+### 핵심 1줄
 
-> **QDA(reg=0.01)가 ROC-AUC 0.9344·PR-AUC 0.3526으로 전 모델 1위; 가이드북 미시도 모델이 "SVM best" 주장을 뒤집음 — 단계별 ablation의 originality 근거 확보.**
+**QDA(reg=0.01)가 ROC-AUC 0.9344·PR-AUC 0.3526으로 전 모델 1위. 가이드북 미시도 모델이 "SVM best" 주장을 뒤집었다 — 단계별 ablation의 originality 근거.**
 
 ---
 
@@ -177,7 +177,7 @@ Resample: SMOTE (random_state=42, k_neighbors=5, fit on scaled train only)
 | TreeTop-10 | 10 | 0.9371 ±0.0124 | 0.2554 |
 | **TreeTop-15** | **15** | **0.9380 ±0.0204** | **0.2899** |
 
-**핵심:** TreeTop-15가 full(25)보다 우수. PCA는 성능 저하. 가이드북에 없는 단계 전체가 originality.
+TreeTop-15가 full(25)보다 오히려 우수하게 나왔다. PCA는 성능이 떨어졌다. 이 차원축소 단계 전체가 가이드북에 없는 부분이며 originality 근거다.
 
 ---
 
@@ -195,16 +195,16 @@ Resample: SMOTE (random_state=42, k_neighbors=5, fit on scaled train only)
 | *QDA (Phase3 ref)* | *0.9344* | *0.3526* | *기준선* |
 | *LR-L2 (Phase3 ref)* | *0.9343* | *0.2690* | *기준선* |
 
-### 핵심 발견
+### 발견 사항
 
-1. **Phase3→4 향상:** ROC-AUC +0.015, PR-AUC +0.12~+0.15 (앙상블·NN의 비선형 이득)
-2. **가이드북 DNN 재현:** ROC=0.9468 / PR=0.4655. 우리 MLP(+Dropout)가 소폭 우위.
-3. **AdaBoost 이변:** PR-AUC~0.50으로 최고 — 불균형 데이터에서 class_weight stump reweighting 효과.
+1. **Phase3→4 향상:** ROC-AUC +0.015, PR-AUC +0.12~+0.15. 비선형 모델로 전환한 이득이다.
+2. **가이드북 DNN 재현:** ROC=0.9468 / PR=0.4655. Dropout을 추가한 MLP가 소폭 앞섰다.
+3. **AdaBoost 이변:** PR-AUC~0.50으로 최고치 — 불균형 데이터에서 class_weight stump reweighting 효과가 컸다.
 4. **Phase 5 Stacking 후보:** MLP, RF, Guidebook DNN, QDA, LR-L2 (다양성 확보).
 
-### 핵심 인사이트 1줄
+### 핵심 1줄
 
-> **앙상블·NN이 Phase3 선형 모델 대비 ROC-AUC +0.015, PR-AUC +0.15 향상; Guidebook DNN 재현과 우리 MLP+Dropout 비교에서 Dropout이 PR-AUC +0.005 개선 확인 — originality 핵심 증거.**
+**앙상블·NN이 Phase3 선형 모델 대비 ROC-AUC +0.015, PR-AUC +0.15 향상. Guidebook DNN 재현 대비 MLP+Dropout이 PR-AUC +0.005 개선 — originality 핵심 증거.**
 
 ---
 
@@ -229,7 +229,7 @@ Resample: SMOTE (random_state=42, k_neighbors=5, fit on scaled train only)
 |---|---|---|
 | LR-L2+QDA+RF+GBM+MLP → LR-meta | 0.9462 ±0.0108 | 0.4484 ±0.1021 |
 
-**Stacking이 단일 best(MLP 0.9497)를 넘지 못함** — base learner 다양성 부족.
+**Stacking이 단일 best(MLP 0.9497)를 넘지 못했다** — base learner 다양성이 부족했기 때문이다.
 
 ### 운용점 분석
 
@@ -238,15 +238,15 @@ Resample: SMOTE (random_state=42, k_neighbors=5, fit on scaled train only)
 | MLP[256,128,64] | 33.8% | **32.4%** |
 | Stacking | 32.4% | 23.9% |
 
-Precision≥0.99 운용 시 MLP가 불량 71건 중 약 23건 탐지 가능.
+Precision≥0.99 운용 시 MLP가 불량 71건 중 약 23건 탐지 가능하다.
 
-### 핵심 발견
+### 발견 사항
 
-1. **CNN1D(32,64) ≈ Phase4 앙상블 수준** — 시계열 정보 없이도 경쟁력 있음.
-2. **Stacking < MLP 단일** — "Stacking이 항상 이긴다"는 가정 반례 발견.
+1. **CNN1D(32,64) ≈ Phase4 앙상블 수준** — 시계열 정보 없이도 충분히 경쟁력 있다.
+2. **Stacking < MLP 단일** — "Stacking이 항상 이긴다"는 가정의 반례다.
 3. **최고 모델**: MLP[256,128,64]+SMOTE (전 Phase 통틀어 ROC 0.9497, PR 0.4710).
-4. **가이드북 비교**: 가이드북 "AE→SVM→DNN 순서" 대비, 우리 ablation에서 가장 기여한 단계 = 불균형 처리(Ph2 +0.024)와 비선형 모델 전환(Ph4 +0.12 PR-AUC).
+4. **가이드북 비교**: 가이드북 "AE→SVM→DNN 순서" 대비, 이 ablation에서 가장 기여한 단계는 불균형 처리(Ph2 +0.024)와 비선형 모델 전환(Ph4 +0.12 PR-AUC)이었다.
 
-### 핵심 인사이트 1줄
+### 핵심 1줄
 
-> **Stacking이 단일 MLP를 넘지 못해 '무조건 스태킹이 낫다'는 가정 반례; 운용점 Prec≥0.99에서 MLP가 Recall 32.4%로 최고 — Phase 6 보고서 핵심 그림 확정.**
+**Stacking이 단일 MLP를 넘지 못해 '무조건 스태킹이 낫다'는 가정의 반례. 운용점 Prec≥0.99에서 MLP가 Recall 32.4%로 최고 — Phase 6 보고서 핵심 그림 확정.**

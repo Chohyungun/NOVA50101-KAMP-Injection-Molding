@@ -33,12 +33,11 @@ KAMP 플랫폼(KAIST·UNIST·㈜이피엠솔루션즈)의 자동차 앞유리 �
 ### 클래스 불균형
 
 - 양품(0): 7,925건 (99.11%)
-- 불량(1): 71건 (0.89%) → 극심한 불균형, SMOTE 필수
+- 불량(1): 71건 (0.89%) — 극심한 불균형, SMOTE 필수
 
 ### 핵심 EDA 발견
 
-- Max_Back_Pressure (r=+0.115), Cycle_Time (r=+0.105), Average_Screw_RPM (r=+0.079)이 불량과 가장 강한 상관
-- Cycle_Time 이상치 구간 불량률: 3.3% (정상 구간 0.3% 대비 11배)
+Max_Back_Pressure (r=+0.115), Cycle_Time (r=+0.105), Average_Screw_RPM (r=+0.079)이 불량과 가장 강한 상관을 보인다. Cycle_Time 이상치 구간의 불량률은 3.3%로, 정상 구간(0.3%) 대비 11배 높다.
 
 ## 3. 방법론 — 단계별 Ablation
 
@@ -64,8 +63,7 @@ Phase 5: CNN1D + Stacking 메타학습기 + 운용점 분석
 | standard | undersample | 0.9064 | 0.0139 | 0.1616 | 0.0400 | 0.0808 | 0.0044 |
 | standard | adasyn | 0.9155 | 0.0292 | 0.2070 | 0.0462 | 0.0783 | 0.0055 |
 
-- **확정:** StandardScaler + SMOTE (ROC-AUC=0.9311±0.0107)
-- 불균형 처리가 ROC-AUC +0.024 기여 (standard+none 0.9076 대비)
+확정 전처리: StandardScaler + SMOTE (ROC-AUC=0.9311±0.0107). SMOTE 미적용(0.9076) 대비 ROC-AUC +0.024 향상.
 
 ### Phase 3: 선형 베이스라인
 
@@ -78,8 +76,7 @@ Phase 5: CNN1D + Stacking 메타학습기 + 운용점 분석
 | SVM_linear | C=10 | standard+none | 0.9074 | 0.0225 | 0.3434 | 0.1094 | 0.0000 | 0.0000 |
 | SVM_RBF | C=10, gamma=0.1 | standard+none | 0.9297 | 0.0116 | 0.0890 | 0.0151 | 0.0000 | 0.0000 |
 
-- **best:** QDA(reg=0.01), ROC-AUC=0.9344, PR-AUC=0.3526
-- 가이드북 "SVM best" 주장에 반해 QDA가 전 지표 1위
+best: QDA(reg=0.01), ROC-AUC=0.9344, PR-AUC=0.3526. 가이드북이 "SVM best"로 제시한 모델을 QDA가 전 지표에서 앞질렀다.
 
 ### Phase 4-A: 차원축소
 
@@ -95,8 +92,7 @@ Phase 5: CNN1D + Stacking 메타학습기 + 운용점 분석
 | TreeTop-10 | 10 | 0.9371 | 0.0124 | 0.2554 | 0.0459 | 0.0934 | 0.0094 |
 | **TreeTop-15** | **15** | **0.9380** | **0.0204** | **0.2899** | **0.0806** | **0.0809** | **0.0103** |
 
-- **best:** TreeTop-15 (ROC-AUC=0.9380, full 25보다 +0.004)
-- PCA는 성능 저하: 99% 분산 보존에도 ROC-AUC=0.8915
+best: TreeTop-15 (ROC-AUC=0.9380, full 25보다 +0.004). PCA는 99% 분산 보존에도 ROC-AUC=0.8915로 성능이 떨어졌다.
 
 ### Phase 4-B: 앙상블·NN
 
@@ -108,8 +104,7 @@ Phase 5: CNN1D + Stacking 메타학습기 + 운용점 분석
 | GradientBoosting | 0.9397 | 0.0226 | 0.4439 | 0.1262 | 0.3116 | 0.0274 | |
 | AdaBoost | 0.8953 | 0.0262 | 0.2566 | 0.1191 | 0.0816 | 0.0080 | |
 
-- **best:** MLP[256,128,64]+Dropout, ROC-AUC=0.9497, PR-AUC=0.4710
-- 가이드북 DNN 재현(0.9468) 대비 Dropout 추가로 PR-AUC +0.005
+best: MLP[256,128,64]+Dropout, ROC-AUC=0.9497, PR-AUC=0.4710. 가이드북 DNN 재현(0.9468) 대비 Dropout 추가로 PR-AUC +0.005.
 
 ### Phase 5: CNN + Stacking
 
@@ -119,8 +114,7 @@ Phase 5: CNN1D + Stacking 메타학습기 + 운용점 분석
 | CNN1D(32,64) | 0.9472 | 0.0152 | 0.4501 | 0.1194 | 0.1820 | 0.0316 |
 | Stacking(LR-meta) | 0.9462 | 0.0108 | 0.4484 | 0.1021 | 0.4819 | 0.1218 |
 
-- CNN1D(32,64): ROC-AUC=0.9472, PR-AUC=0.4501
-- Stacking: ROC-AUC=0.9462 — 단일 MLP(0.9497) 미초과
+CNN1D(32,64): ROC-AUC=0.9472, PR-AUC=0.4501. Stacking: ROC-AUC=0.9462 — 단일 MLP(0.9497) 미초과.
 
 ### 운용점 분석
 
@@ -131,7 +125,7 @@ Phase 5: CNN1D + Stacking 메타학습기 + 운용점 분석
 | MLP[256,128,64] | prec>=0.95 | 0.9600 | **33.80%** | 0.9977 |
 | MLP[256,128,64] | prec>=0.99 | 1.0000 | **32.39%** | 0.9990 |
 
-- Precision≥0.99 기준: MLP Recall=32.4% (불량 71건 중 약 23건 탐지)
+Precision≥0.99 기준으로 MLP Recall=32.4% — 불량 71건 중 약 23건 탐지 가능.
 
 ## 5. 가이드북 비교
 
