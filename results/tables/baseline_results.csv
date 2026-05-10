@@ -1,0 +1,7 @@
+model,best_params,preprocessing,roc_auc_mean,roc_auc_std,pr_auc_mean,pr_auc_std,f1_mean,f1_std,guidebook_note
+LR_L1,"{'C': np.float64(10.0), 'penalty': 'l1', 'solver': 'saga', 'max_iter': np.float64(3000.0), 'random_state': np.float64(42.0)}",standard+smote,0.9342,0.0119,0.2691,0.0535,0.0848,0.0073,N/A (가이드북 비교 대상 없음)
+LR_L2,"{'C': np.float64(10.0), 'penalty': 'l2', 'solver': 'saga', 'max_iter': np.float64(3000.0), 'random_state': np.float64(42.0)}",standard+smote,0.9343,0.0118,0.269,0.0537,0.0828,0.0078,N/A (전처리 ablation 기준: 0.9311)
+LDA,"{'solver': 'lsqr', 'shrinkage': 'auto'}",standard+smote,0.9078,0.0128,0.1447,0.0523,0.0813,0.0025,N/A
+QDA,{'reg_param': np.float64(0.01)},standard+smote,0.9344,0.0175,0.3526,0.1026,0.0716,0.0021,N/A
+SVM_linear,{'C': np.float64(10.0)},standard+none,0.9074,0.0225,0.3434,0.1094,0.0,0.0,가이드북 SVM best (§2.3 참조)
+SVM_RBF,"{'C': np.float64(10.0), 'gamma': np.float64(0.1)}",standard+none,0.9297,0.0116,0.089,0.0151,0.0,0.0,가이드북 SVM best (§2.3 참조)

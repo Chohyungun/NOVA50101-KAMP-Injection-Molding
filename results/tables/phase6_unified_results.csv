@@ -1,0 +1,10 @@
+﻿Phase,모델,전처리,ROC-AUC(mean±std),PR-AUC(mean±std),가이드북비교,비고
+Phase 2,LR-L2,StandardScaler+SMOTE,0.9311±0.0107,0.2413±0.0554,미비교 (전처리 ablation 단계),불균형 처리 +0.024 ROC vs none
+Phase 3,QDA(reg=0.01),StandardScaler+SMOTE,0.9344±0.0175,0.3526±0.1026,가이드북 미시도 모델이 SVM 초과,선형·생성적 모델 최고
+Phase 3,SVM-linear(C=10),StandardScaler,0.9074±0.0225,0.3434±0.1094,가이드북 §2.3 SVM best,QDA 대비 ROC -0.027
+Phase 4-A,LR-L2+TreeTop-15,StandardScaler+SMOTE+TreeTop15,0.9380±0.0204,0.2899±0.0806,가이드북 미포함 단계,full(25) 대비 ROC +0.004
+Phase 4-B,"MLP[256,128,64]+Dropout",StandardScaler+SMOTE,0.9497±0.0166,0.4710±0.0968,가이드북 DNN 초과 +0.0029 ROC / +0.0055 PR,전 Phase 최고 모델
+Phase 4-B,Guidebook DNN(§2.3 재현),StandardScaler+SMOTE,0.9468±0.0164,0.4655±0.1269,가이드북 DNN 기준선,Dropout 없음
+Phase 4-B,RandomForest(n=500),StandardScaler+SMOTE,0.9478±0.0123,0.4481±0.1121,가이드북 미포함,앙상블 2위
+Phase 5,"CNN1D(32,64)",StandardScaler+SMOTE,0.9472±0.0152,0.4501±0.1194,가이드북 미포함,1D-CNN 최고
+Phase 5,Stacking(LR-meta),StandardScaler+SMOTE,0.9462±0.0108,0.4484±0.1021,가이드북 미포함,단일 MLP 미초과 — 앙상블 반례

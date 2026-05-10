@@ -1,0 +1,5 @@
+model,target_precision,achieved_precision,recall_at_target,threshold
+Stacking,prec>=0.95,0.9583,0.3239,0.5443
+Stacking,prec>=0.99,1.0,0.2394,0.5825
+"MLP[256,128,64]",prec>=0.95,0.96,0.338,0.9977
+"MLP[256,128,64]",prec>=0.99,1.0,0.3239,0.999

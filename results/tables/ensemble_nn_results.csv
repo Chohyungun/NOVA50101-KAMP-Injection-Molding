@@ -1,0 +1,8 @@
+model,roc_auc_mean,roc_auc_std,pr_auc_mean,pr_auc_std,f1_mean,f1_std,guidebook_note
+RandomForest,0.9478,0.0123,0.4481,0.1121,0.3723,0.1048,
+GradientBoosting,0.9397,0.0226,0.4439,0.1262,0.3116,0.0274,
+MLP_PyTorch,0.9497,0.0166,0.471,0.0968,0.1521,0.0215,
+Guidebook_DNN,0.9468,0.0164,0.4655,0.1269,0.2067,0.0311,Guidebook DNN §2.3 재현
+QDA (Phase 3 best),0.9344,0.0175,0.3526,0.1026,,,Phase 3 reference
+LR-L2 (Phase 3 ref),0.9343,0.0118,0.269,0.0537,,,Phase 3 reference
+AdaBoost,0.8953,0.0262,0.2566,0.1191,0.0816,0.008,N/A

@@ -1,0 +1,53 @@
+# 데이터 원본 (KAMP 저작권 — 업로드 금지)
+data/raw/
+data/processed/
+
+# Claude Code 내부 설정
+.claude/
+
+# 저작권 강의자료·제안서 원본
+docs/lecture*.pdf
+docs/*.docx
+docs/04.-Guidebook_사출성형기.pdf
+docs/On_predicting_research_grants_productivity_via_machine_learning.pdf
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# 환경
+.env
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# 대용량 모델 파일
+*.pkl
+*.joblib
+*.h5
+*.pt
+*.pth
+
+# pytest 캐시
+.pytest_cache/
