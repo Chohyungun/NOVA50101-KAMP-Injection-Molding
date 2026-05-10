@@ -1,4 +1,4 @@
-"""Evaluation metrics — ROC-AUC, PR-AUC, F1, Precision@Recall."""
+"""Evaluation metrics: ROC-AUC, PR-AUC, F1, Precision@Recall."""
 from __future__ import annotations
 
 import numpy as np
@@ -28,11 +28,11 @@ def compute_metrics(
         "pr_auc":  float(average_precision_score(y_true, y_prob)),
         "f1":      float(f1_score(y_true, y_pred, zero_division=0)),
     }
-    prec, rec, _ = precision_recall_curve(y_true, y_prob)
+    prec_arr, rec_arr, _ = precision_recall_curve(y_true, y_prob)
     for t in recall_targets:
-        mask = rec >= t
+        mask = rec_arr >= t
         key = f"prec_at_rec{int(t * 100)}"
-        metrics[key] = float(prec[mask][-1]) if mask.any() else 0.0
+        metrics[key] = float(prec_arr[mask][-1]) if mask.any() else 0.0
     return metrics
 
 
