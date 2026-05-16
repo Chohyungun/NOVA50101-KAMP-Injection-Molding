@@ -1,0 +1,6 @@
+method,train_data,roc_auc_mean,roc_auc_std,pr_auc_mean,pr_auc_std
+K-Means (k=5),unlabeled 795K,0.4697,0.0629,0.1444,0.084
+K-Means (k=10),unlabeled 795K,0.3986,0.0624,0.0575,0.0293
+K-Means (k=20),unlabeled 795K,0.3149,0.0516,0.0684,0.0467
+K-Means (k=50),unlabeled 795K,0.3072,0.0449,0.0684,0.0468
+One-Class SVM (nu=0.02),"labeled 양품 7,925",0.8814,0.0265,0.1765,0.0872
