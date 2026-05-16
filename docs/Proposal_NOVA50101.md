@@ -44,31 +44,20 @@
 
 자동차 앞유리 사이드 몰딩 사출성형 공정에서의 불량 예측은 제품 품질 관리의 핵심 과제이다. KAMP 가이드북은 AutoEncoder→SVM→DNN을 순차 학습한 뒤 단일 최고 모델을 선택하는 방식을 제시하지만, 두 가지 한계가 있다. 첫째, 각 처리 단계 중 어떤 단계가 성능 향상에 실제로 기여했는지 분리 측정하지 않는다. 둘째, 전체 데이터의 89.8%인 unlabeled 795,315행을 활용하지 않는다. 불량률 0.89%의 극심한 클래스 불균형으로 인해 단순 정확도(Accuracy)로는 모델 성능을 제대로 평가할 수 없으며, PR-AUC와 운용점 분석이 필수적이다.
 
-### 2.2 초기 실험 결과 (Phase 1–6, 완료)
+### 2.2 초기 실험 결과 (Phase 1–7, 완료)
 
-labeled 7,996행에 대해 6단계 Ablation 연구를 완료하였다. 전 실험은 Stratified 5-fold 교차검증(random_state=42)으로 ROC-AUC와 PR-AUC(defect class positive)를 주 평가지표로 사용한다.
+labeled 7,996행에 대해 Phase 1~6 Ablation을 완료하였으며, Phase 7에서는 unlabeled 795K를 활용한 비지도 이상탐지 1차 실험을 추가로 수행하였다. 전 실험은 Stratified 5-fold 교차검증(random_state=42)으로 ROC-AUC와 PR-AUC(defect class positive)를 주 평가지표로 사용하며, SMOTE를 포함한 모든 리샘플링은 각 fold의 training split에만 fit하였다.
 
-| Phase | 핵심 실험 | 주요 발견 |
+| Phase | 핵심 실험 | 주요 발견 및 해석 |
 |---|---|---|
-| Phase 2 | Scaler 2종 × 불균형 처리 5종 = 10조합 | StandardScaler+SMOTE ROC-AUC 0.9311, PR-AUC 표준편차 절반 감소 |
-| Phase 3 | LR/LDA/QDA/SVM-linear/SVM-RBF | QDA PR-AUC **0.3526** — 가이드북 SVM-RBF(0.0890) 대비 4배 |
-| Phase 4-A | PCA/분산임계/트리중요도 Top-K | PCA 역효과 확인, TreeTop-15 소폭 최고(ROC 0.9380) |
-| Phase 4-B | RF/GBM/MLP+Dropout, 가이드북 DNN 재현 | MLP[256,128,64] ROC **0.9497**, PR **0.4710** — 가이드북 DNN 초과 |
-| Phase 5 | 1D-CNN, 5모델 Stacking | Stacking(ROC 0.9462) < 단일 MLP(0.9497): 기반 모델 다양성 부족 시 역효과 실증 |
-| Phase 6 | 운용점(Precision-fixed Recall) 분석 | Precision ≥ 0.99 기준 MLP Recall **32.4%** (불량 71건 중 23건 탐지) |
-
-**단계별 성능 기여도 요약:**
-
-| 단계 변화 | 지표 기여 |
-|---|---|
-| 없음 → SMOTE (Phase 2) | ROC-AUC +0.024, PR-AUC 분산 절반 |
-| LR → QDA (Phase 3) | PR-AUC +0.084 |
-| QDA → MLP (Phase 4) | PR-AUC **+0.119** (단계 중 최대 기여) |
-| 단일 → Stacking (Phase 5) | PR-AUC −0.023 (앙상블 통념의 반례) |
-
-**Phase 7 — 비지도 이상탐지 1차 실험 (2026-05-16 완료):**
-
-labeled 양품 데이터(7,925행)만으로 학습한 One-Class SVM은 ROC-AUC 0.8814를 달성하여, 정상 패턴 학습 기반 이상탐지의 가능성을 확인하였다. 반면 전체 unlabeled 795K로 학습한 K-Means(k=5)는 ROC-AUC 0.4697로 사실상 랜덤 수준에 머물렀다. 이는 unlabeled 데이터가 다양한 기계·제품 조건을 포함하는 반면, 평가용 labeled 데이터는 특정 설비(CN7/RG3 전용 기계)에 집중되어 있어 도메인 불일치가 발생하였기 때문으로 해석된다. 이 발견이 방법 B·C 실험 설계의 직접적 동기가 된다.
+| **1** | EDA — 변수 분포·결측·상관 분석 | 분산=0 변수 11개 제거, 유효 피처 25개 확정; 불량률 0.89%, 공정 드리프트 확인 |
+| **2** | Scaler 2종 × 불균형 처리 5종 = 10조합 | StandardScaler+SMOTE ROC +0.024; SMOTE는 점수보다 PR 분산 절반으로 안정화 효과 |
+| **3** | LR/LDA/QDA/SVM-linear/SVM-RBF | QDA PR **0.3526** — 가이드북이 "best"로 제시한 SVM-RBF(0.0890) 대비 4배; 체계적 탐색의 필요성 실증 |
+| **4-A** | PCA/분산임계/트리중요도 Top-K | PCA는 성능 저하; TreeTop-15(ROC 0.9380)가 전체 25개 피처보다 소폭 우위 |
+| **4-B** | RF/GBM/MLP+Dropout, 가이드북 DNN 재현 | MLP[256,128,64] ROC **0.9497**, PR **0.4710** — 가이드북 DNN 대비 소폭 초과; 비선형 전환이 단계 중 최대 기여(PR +0.119) |
+| **5** | 1D-CNN, 5모델 OOF Stacking | Stacking(ROC 0.9462) < 단일 MLP(0.9497): 기반 모델 다양성 부족 시 앙상블 역효과 실증 |
+| **6** | 운용점(Precision-fixed Recall) 분석 | Precision ≥ 0.99 기준 MLP Recall **32.4%** — 불량 71건 중 23건 탐지 가능; 나머지 48건이 향후 방법 A~C의 동기 |
+| **7** | One-Class SVM, K-Means 비지도 이상탐지 | OC-SVM(양품만 학습) ROC **0.8814**; K-Means(unlabeled 전체) ROC **0.4697** — unlabeled 데이터의 다기계·다제품 혼재로 도메인 불일치 발생, 동일 설비·제품 필터링 재실험 예정 |
 
 ### 2.3 제안하는 방법 (향후 수행 예정)
 
