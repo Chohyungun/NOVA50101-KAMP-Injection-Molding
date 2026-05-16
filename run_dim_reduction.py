@@ -21,7 +21,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.linear_model import LogisticRegression
 
-from utils import set_seed
+from utils import set_seed, setup_korean_font
 from data import load_raw, get_fold
 from preprocess import get_feature_cols, fit_transform_fold
 from evaluate import compute_metrics, aggregate_fold_metrics
@@ -30,6 +30,7 @@ set_seed(42)
 TABLES_DIR  = Path('results/tables');  TABLES_DIR.mkdir(parents=True, exist_ok=True)
 FIGURES_DIR = Path('results/figures'); FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 sns.set_theme(style='whitegrid', palette='muted')
+setup_korean_font()
 
 df = load_raw('labeled_data')
 FEAT_COLS = get_feature_cols(df)
