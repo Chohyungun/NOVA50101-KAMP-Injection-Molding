@@ -72,17 +72,13 @@ labeled 양품 데이터(7,925행)만으로 학습한 One-Class SVM은 ROC-AUC 0
 
 ### 2.3 제안하는 방법 (향후 수행 예정)
 
-**방법 B — Autoencoder 기반 이상탐지 (가이드북 §2.2.1 재현 및 확장)**
+**방법 A — Autoencoder 기반 이상탐지 (가이드북 §2.2.1 재현 및 확장)**
 
 가이드북의 Denoising AutoEncoder는 labeled 양품 데이터만으로 학습하여 복원 오차를 이상 점수로 사용하고, 3–5σ 휴리스틱 임계값으로 불량을 판정한다. 본 연구에서는 두 가지를 확장한다. 첫째, AE 학습에 labeled 양품과 labeled 데이터와 동일 설비·제품 조건으로 필터링한 unlabeled subset을 추가 비교하여, unlabeled 활용 이점과 도메인 불일치 영향을 함께 평가한다. 둘째, σ 휴리스틱 임계값을 각 fold의 validation PR 곡선에서 직접 선택하는 방식으로 대체한다. One-Class SVM(구현 완료, ROC 0.8814), AE(labeled만), AE(filtered unlabeled 포함) 세 가지를 임계값 방식 2종과 교차 비교하는 3×2 Ablation을 수행한다.
 
-*강의 연결: One-Class SVM (L7-8) / Denoising AE, MLP+Dropout (L11-14)*
+**방법 B — K-Means 거리 기반 비지도 이상탐지 (가이드북에 없는 독자적 접근)**
 
-**방법 C — K-Means 거리 기반 비지도 이상탐지 (가이드북에 없는 독자적 접근)**
-
-가이드북은 비지도 이상탐지의 이상 점수 원리로 "거리 또는 밀도 기반"을 언급하지만(§2.2.1) AE만 구현하였다. 본 연구는 K-Means centroid까지의 최소 거리를 이상 점수로 활용한다. 1차 실험에서 확인된 도메인 불일치를 해소하기 위해, 개선 실험에서는 labeled 데이터와 동일 기계·제품 조건으로 필터링한 unlabeled subset으로 K-Means를 재학습한다. k값 튜닝 ablation(k=5~50)을 수행하고, 방법 B(복원 오차 기반)와 동일 평가 기준으로 정량 비교한다.
-
-*강의 연결: K-Means (L9-10) / Future Work: DBSCAN, GMM, UMAP (L9-11)*
+가이드북은 비지도 이상탐지의 이상 점수 원리로 "거리 또는 밀도 기반"을 언급하지만(§2.2.1) AE만 구현하였다. 본 연구는 K-Means centroid까지의 최소 거리를 이상 점수로 활용한다. 1차 실험에서 확인된 도메인 불일치를 해소하기 위해, 개선 실험에서는 labeled 데이터와 동일 기계·제품 조건으로 필터링한 unlabeled subset으로 K-Means를 재학습한다. k값 튜닝 ablation(k=5~50)을 수행하고, 방법 A(복원 오차 기반)와 동일 평가 기준으로 정량 비교한다.
 
 ---
 
