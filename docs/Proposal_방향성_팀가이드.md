@@ -165,13 +165,18 @@ unlabeled_data 795K는 공장 내 여러 기계·제품(33개 기계 추정)의 
 
 ---
 
-### 접근법 A: Pseudo-labeling → Future Work로 이동
+### 접근법 C: Pseudo-labeling → **Proposal 방법 C로 포함** (재검토 후 결정)
 
-가이드북 §2.2.2의 Semi-supervised Pseudo-labeling은 중요한 방법이지만, 이번 Proposal에서는 방법 B/C에 집중하고 A는 Future Work에 서술한다.
+가이드북 §2.2.2의 Semi-supervised Pseudo-labeling을 방법 C로 Proposal에 포함한다.
 
-이유: Proposal에 3가지 "앞으로 할 것"을 모두 나열하면 비현실적으로 보인다. B(AE)와 C(K-Means)가 이미 실험을 시작했으므로 이 둘이 더 구체적이다.
+**포함 근거:**
+- Proposal은 계획서이므로 실험을 아직 안 해도 "수행 예정"으로 기재 가능
+- 가이드북 §2.2.2가 직접 근거이므로 계획 신뢰도가 높음
+- 방법 A(§2.2.1 AE) + 방법 C(§2.2.2 Pseudo-labeling) = 가이드북 두 갈래를 모두 재현 + 개선하는 구조가 완성됨
+- 점수 측면에서 방법이 많을수록 Technical Soundness 항목에 유리
 
-Future Work 표현: "가이드북이 §2.2.2에서 활용한 Semi-supervised Pseudo-labeling을 Phase 3~4의 best 모델(QDA, RF, MLP)로 재현하면, 가이드북의 고정 4종 모델 대비 데이터 기반 모델 선택이라는 추가 차별점이 생긴다."
+**Proposal에서의 표현 (1~2줄):**
+가이드북 §2.2.2는 labeled 데이터로 분류기를 먼저 학습한 뒤, unlabeled 데이터에 예측 확률로 엔트로피를 계산하고 확신도 높은 샘플에 pseudo-label을 부여하여 labeled set을 반복 확장하는 방식을 사용한다. 본 연구에서는 가이드북의 고정 4종 모델(SVM, RF, GNB, DNN) 대신 Phase 3~4 ablation에서 검증된 best 모델(QDA, RF, MLP)을 기반 분류기로 활용한다.
 
 ---
 

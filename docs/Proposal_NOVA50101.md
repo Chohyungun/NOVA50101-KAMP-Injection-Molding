@@ -80,6 +80,10 @@ labeled 양품 데이터(7,925행)만으로 학습한 One-Class SVM은 ROC-AUC 0
 
 가이드북은 비지도 이상탐지의 이상 점수 원리로 "거리 또는 밀도 기반"을 언급하지만(§2.2.1) AE만 구현하였다. 본 연구는 K-Means centroid까지의 최소 거리를 이상 점수로 활용한다. 1차 실험에서 확인된 도메인 불일치를 해소하기 위해, 개선 실험에서는 labeled 데이터와 동일 기계·제품 조건으로 필터링한 unlabeled subset으로 K-Means를 재학습한다. k값 튜닝 ablation(k=5~50)을 수행하고, 방법 A(복원 오차 기반)와 동일 평가 기준으로 정량 비교한다.
 
+**방법 C — Semi-supervised Pseudo-labeling (가이드북 §2.2.2 재현 및 확장)**
+
+가이드북 §2.2.2는 labeled 데이터로 분류기를 먼저 학습한 뒤, unlabeled 데이터에 엔트로피 기반 확신도를 계산하여 신뢰도 높은 샘플에 pseudo-label을 부여하고 labeled set을 반복 확장하는 방식을 사용한다. 본 연구에서는 가이드북의 고정 4종 모델(SVM, RF, GNB, DNN) 대신 Phase 3~4 ablation에서 검증된 best 모델(QDA, RF, MLP)을 기반 분류기로 활용하여, 데이터 기반 모델 선택이라는 추가 차별점을 확보한다.
+
 ---
 
 ## 3. 팀원 역할
