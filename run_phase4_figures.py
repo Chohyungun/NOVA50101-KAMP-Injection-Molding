@@ -27,6 +27,7 @@ setup_korean_font()
 FIGURES_DIR = Path('results/figures')
 TABLES_DIR  = Path('results/tables')
 sns.set_theme(style='whitegrid', palette='muted')
+setup_korean_font()
 plt.rcParams.update({'figure.dpi': 120, 'font.size': 11})
 
 df = load_raw('labeled_data')

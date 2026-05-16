@@ -20,6 +20,7 @@ TABLES_DIR  = PROJECT_ROOT / 'results' / 'tables'
 FIGURES_DIR.mkdir(parents=True, exist_ok=True)
 TABLES_DIR.mkdir(parents=True, exist_ok=True)
 sns.set_theme(style='whitegrid', palette='muted')
+setup_korean_font()
 plt.rcParams.update({'figure.dpi': 120, 'font.size': 11})
 
 # ── Load all 8 CSVs ────────────────────────────────────────────────────────
