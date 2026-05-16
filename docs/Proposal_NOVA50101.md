@@ -1,114 +1,102 @@
-# Final Project Proposal
-## NOVA50101 Introduction to Artificial Intelligence for Industrial AI
+# 최종 프로젝트 제안서
+## NOVA50101 인공지능학개론 (산업 AI)
 
 ---
 
-**Team Number:** [팀 번호 — Blackboard 공지 확인 후 기재]  
-**Team Members:** Hyungun Cho (Leader), [Member B], [Member C]  
-**Project Title:** Defect Prediction in Injection Molding: Step-by-Step Ablation Study and Unsupervised Anomaly Detection on KAMP Manufacturing Data
+**팀 번호:** [팀 번호 — Blackboard 확인 후 기재]  
+**팀원:** [팀장 이름] (팀장), 조현건, [팀원 C 이름]  
+**프로젝트 제목:** KAMP 사출성형 데이터를 활용한 공정 불량 예측 — 단계별 Ablation 연구 및 비지도 이상탐지
 
 ---
 
-## 1. Dataset Information and Baselines
+## 1. 데이터셋 정보 및 베이스라인
 
-### Dataset
+### 데이터셋
 
-| Item | Detail |
+| 항목 | 내용 |
 |---|---|
-| **Name** | KAMP Injection Molding Machine AI Dataset |
-| **Source** | KAMP Platform (https://www.kamp-ai.kr) — KAIST · UNIST · EPM Solutions Co., Ltd. |
-| **Kaggle URL** | Not available on Kaggle (KAMP platform only) |
-| **Size** | 886,227 total rows across 8 CSV files |
-| **Labeled data** | `labeled_data.csv` — 7,996 rows × 45 columns (9 meta + 36 process variables) |
-| **Unlabeled data** | `unlabeled_data.csv` — 795,315 rows (no per-item label) |
-| **Effective features** | 25 (removed 11 zero-variance + 1 ID column via EDA) |
-| **Target** | `PassOrFail` — 0: defect (71 items, 0.89%), 1: good (7,925 items, 99.11%) |
-| **Type** | Tabular, manufacturing process variables (temperature, pressure, speed, position, time) |
+| **데이터셋 이름** | KAMP 사출성형기 AI 데이터셋 |
+| **출처** | KAMP 플랫폼 (https://www.kamp-ai.kr) — KAIST · UNIST · ㈜이피엠솔루션즈 공동 제작 |
+| **Kaggle URL** | Kaggle 미등재 (KAMP 플랫폼 전용 데이터셋) |
+| **전체 크기** | 총 886,227행 (8개 CSV 파일) |
+| **지도학습 데이터** | `labeled_data.csv` — 7,996행 × 45컬럼 (메타 9 + 공정 변수 36) |
+| **비지도 데이터** | `unlabeled_data.csv` — 795,315행 (항목별 레이블 없음) |
+| **유효 피처** | 25개 (EDA에서 분산=0 변수 11개 + ID 1개 제거) |
+| **타겟 변수** | `PassOrFail` — 불량(0): 71건(0.89%), 양품(1): 7,925건(99.11%) |
+| **데이터 유형** | 정형(Tabular), 공정 변수 (온도·압력·속도·위치·시간) |
 
-> Since no public code is available for this dataset, baselines' URLs are not submitted per the assignment guidelines. Instead, we use the **KAMP Official Guidebook** (KAIST·UNIST, 2020, §2.2–2.3) as our primary comparison baseline, which implements Denoising AutoEncoder, SVM, and DNN on this exact dataset.
+> 본 데이터셋은 Kaggle에 등재되어 있지 않아 공개 코드 URL을 제출하지 않습니다(과제 지시서 "If no public code is available" 조항 적용). 대신 **KAMP 공식 가이드북**(KAIST·UNIST, 2020, §2.2–2.3)을 비교 베이스라인으로 사용합니다. 가이드북은 동일 데이터셋에 Denoising AutoEncoder, SVM, DNN을 적용하였습니다.
 
-### Baseline Comparison (Guidebook, §2.3)
+### 베이스라인 (가이드북 §2.3 재현)
 
-| Model | ROC-AUC | PR-AUC | Note |
+| 모델 | ROC-AUC | PR-AUC | 비고 |
 |---|---|---|---|
-| Guidebook DNN [32→64→32] | 0.9468 | 0.4655 | Reproduced exactly |
-| Guidebook SVM (claimed "best") | N/A | N/A | Phase 3 in our study |
+| 가이드북 DNN [32→64→32] | 0.9468 | 0.4655 | 직접 재현 완료 |
+| 가이드북 SVM ("최고 성능"으로 주장) | — | 0.0890 | Phase 3에서 QDA(0.3526)에 역전됨 |
 
 ---
 
-## 2. Project Description and Approach
+## 2. 프로젝트 설명 및 접근 방법
 
-### 2.1 Problem and Motivation
+### 2.1 문제 정의 및 동기
 
-Injection molding defect prediction is a critical quality-control task in automotive manufacturing. The KAMP guidebook addresses this by sequentially training an AutoEncoder, SVM, and DNN, then selecting the single best performer. This approach has two limitations that motivate our work: (1) it does not isolate which processing step contributes most to performance improvement, and (2) it leaves 795,315 unlabeled samples (89.8% of the total dataset) entirely unused. The extreme class imbalance (0.89% defect rate) makes the task additionally challenging.
+자동차 앞유리 사이드 몰딩 사출성형 공정에서의 불량 예측은 제품 품질 관리의 핵심 과제입니다. KAMP 가이드북은 AutoEncoder → SVM → DNN을 순서대로 학습한 뒤 단일 최고 모델을 선택하는 방식을 사용하지만, 두 가지 한계가 있습니다. 첫째, 각 처리 단계 중 어떤 단계가 성능 향상에 실제로 기여했는지 분리 측정하지 않습니다. 둘째, 전체 데이터의 89.8%인 unlabeled 795,315행을 활용하지 않습니다. 불량률 0.89%라는 극심한 클래스 불균형은 이 과제를 더욱 어렵게 만들며, 단순 정확도(Accuracy) 지표로는 모델 성능을 제대로 평가할 수 없습니다.
 
-### 2.2 Initial Experimental Results (Phase 1–6, Completed)
+### 2.2 초기 실험 결과 (Phase 1–6, 완료)
 
-We have completed a six-phase ablation study using only the 7,996 labeled samples. All experiments use Stratified 5-fold cross-validation with random_state=42, reporting ROC-AUC and PR-AUC as primary metrics.
+7,996행의 labeled 데이터로 6단계 Ablation 연구를 완료하였습니다. 전 실험은 Stratified 5-fold 교차검증(random_state=42)으로 ROC-AUC와 PR-AUC를 주 평가지표로 사용합니다.
 
-**Phase 2 — Preprocessing Ablation (2 scalers × 5 imbalance methods = 10 combinations):**  
-StandardScaler + SMOTE achieved the best ROC-AUC (0.9311), improving over no resampling (+0.024). Critically, SMOTE halved the PR-AUC standard deviation (0.1145 → 0.0554), confirming its role in stabilizing results under extreme imbalance — a dimension entirely absent from the guidebook.
+**Phase 2 — 전처리 Ablation (Scaler 2종 × 불균형 처리 5종 = 10 조합):**  
+StandardScaler+SMOTE가 ROC-AUC 0.9311로 최고 성능을 달성하였으며, SMOTE 미적용 대비 +0.024 향상되었습니다. SMOTE는 점수 향상보다 PR-AUC 표준편차를 0.1145에서 0.0554로 절반 수준으로 줄여 결과를 안정화하는 효과를 확인하였습니다. 가이드북은 이 비교 자체를 수행하지 않았습니다.
 
-**Phase 3 — Linear Baselines (LR-L1/L2, LDA, QDA, SVM-linear, SVM-RBF):**  
-QDA (reg=0.01) achieved ROC-AUC 0.9344 and PR-AUC 0.3526, outperforming the guidebook's claimed "best" SVM-RBF (PR-AUC 0.0890) by a factor of 4. Systematic search revealed a strong model that the guidebook's sequential approach missed entirely.
+**Phase 3 — 선형 베이스라인 (LR-L1/L2, LDA, QDA, SVM-linear, SVM-RBF):**  
+QDA(reg=0.01)가 ROC-AUC 0.9344, PR-AUC 0.3526을 달성하여, 가이드북이 "최고 성능"으로 제시한 SVM-RBF(PR-AUC 0.0890)를 약 4배 차이로 앞질렀습니다. 체계적 탐색 없이는 발견하기 어려운 강력한 모델을 발굴하였습니다.
 
-**Phase 4 — Dimensionality Reduction + Ensemble·NN:**  
-MLP[256,128,64]+Dropout(0.3) achieved ROC-AUC 0.9497 and PR-AUC 0.4710, exceeding the reproduced guidebook DNN (0.9468 / 0.4655). The non-linear model transition from QDA to MLP contributed the single largest performance gain: PR-AUC +0.119. PCA hurt performance on this dataset, confirming that defect patterns are not well-captured by linear principal components.
+**Phase 4 — 차원축소 + 앙상블·신경망:**  
+MLP[256,128,64]+Dropout(0.3)이 ROC-AUC 0.9497, PR-AUC 0.4710을 달성하여 재현한 가이드북 DNN(0.9468/0.4655)을 초과하였습니다. QDA에서 MLP로의 비선형 모델 전환이 단계 중 최대 기여(PR-AUC +0.119)를 보였습니다.
 
-**Phase 5 — 1D-CNN and Stacking:**  
-CNN1D(32,64) achieved ROC-AUC 0.9472. Stacking (meta-LR over LR+QDA+RF+GBM+MLP) reached ROC-AUC 0.9462 — failing to exceed the single best model (MLP 0.9497), demonstrating that ensemble diversity, not merely combination, drives stacking gains.
+**Phase 5 — 1D-CNN 및 Stacking:**  
+CNN1D(32,64)가 ROC-AUC 0.9472를 달성하였습니다. Stacking(메타 LR, 기반: LR+QDA+RF+GBM+MLP)은 ROC-AUC 0.9462로 단일 최고 모델(MLP 0.9497)에 미달하여, 기반 모델의 다양성 부족이 Stacking 성능을 제한함을 실증하였습니다.
 
-**Phase 6 — Operating Point Analysis:**  
-At Precision ≥ 0.99, MLP detects 23 of 71 defects (Recall 32.4%). This defines the practical deployment boundary and reveals that detecting the remaining 48 defects requires either more labeled defect data or alternative modeling approaches.
+**Phase 6 — 운용점 분석:**  
+Precision ≥ 0.99 기준으로 MLP는 불량 71건 중 23건을 탐지(Recall 32.4%)합니다. 나머지 48건의 탐지를 위해서는 추가 레이블 데이터 확보 또는 대안적 접근이 필요함을 확인하였습니다.
 
-**Step-by-step contribution summary:**
-
-| Phase | Change | Contribution |
+| Phase | 변경 내용 | 성능 기여 |
 |---|---|---|
-| Phase 2 | None → SMOTE | ROC-AUC +0.024, PR-AUC std halved |
+| Phase 2 | 없음 → SMOTE | ROC-AUC +0.024, PR-AUC 표준편차 절반 |
 | Phase 3 | LR → QDA | PR-AUC +0.084 |
-| Phase 4 | QDA → MLP | PR-AUC +0.119 (largest gain) |
-| Phase 5 | Single → Stacking | PR-AUC −0.023 (counterexample) |
+| Phase 4 | QDA → MLP | PR-AUC +0.119 (최대 기여) |
+| Phase 5 | 단일 → Stacking | PR-AUC −0.023 (반례 발견) |
 
-**Anomaly detection prototype (1st experiment, 2026-05-16):**  
-One-Class SVM trained on labeled good samples (7,925 rows) achieved ROC-AUC 0.8814 without any defect labels during training. K-Means (k=5, trained on unlabeled 795K) achieved ROC-AUC 0.4697 — near random — because the unlabeled data spans many machines and products while labeled data is product-specific (CN7/RG3, single machine). This domain mismatch is the key finding motivating Method C's refinement.
+**비지도 이상탐지 1차 실험 (2026-05-16 완료):**  
+레이블 없이 양품 데이터(7,925행)만으로 학습한 One-Class SVM이 ROC-AUC 0.8814를 달성하였습니다. 반면, unlabeled 795K 전체로 학습한 K-Means(k=5)는 ROC-AUC 0.4697(사실상 랜덤 수준)에 그쳤는데, unlabeled 데이터가 다양한 기계·제품을 포함하는 반면 labeled 데이터는 특정 기계의 CN7/RG3 제품만을 다루는 도메인 불일치가 원인으로 확인되었습니다. 이 발견이 방법 C 개선의 직접적 동기가 됩니다.
 
-### 2.3 Proposed Methods (Future Work)
+### 2.3 제안하는 방법 (향후 수행 예정)
 
-**Method B — Autoencoder-based Anomaly Detection (Guidebook §2.2.1 reproduction + extension)**
+**방법 B — Autoencoder 기반 이상탐지 (가이드북 §2.2.1 재현 및 확장)**
 
-The guidebook trains a Denoising AutoEncoder on labeled good samples only, using reconstruction error as the anomaly score with a 3–5σ threshold. We propose two extensions: (1) training the AE jointly on labeled good samples and all unlabeled 795K rows to build richer normal-pattern representations (no label leakage, as AE requires no labels), and (2) replacing the σ-heuristic threshold with an operating-point-based threshold selected from the labeled validation fold's PR curve. We compare One-Class SVM (already implemented, ROC 0.8814), AE (labeled-only), and AE (labeled + unlabeled) across both threshold strategies — a 3×2 ablation not present in the guidebook.
+가이드북은 labeled 양품 데이터만으로 Denoising AutoEncoder를 학습하여 복원 오차(reconstruction error)를 이상 점수로 사용하고, 3–5σ 임계값으로 불량을 판정합니다. 우리는 두 가지를 확장합니다. 첫째, labeled 양품 데이터와 unlabeled 795K를 함께 학습에 투입하여 더 풍부한 정상 패턴을 학습합니다(레이블이 불필요하므로 데이터 누수 없음). 둘째, σ 휴리스틱 임계값을 validation fold의 PR 곡선에서 직접 선택하는 방식으로 대체합니다. One-Class SVM(구현 완료, ROC 0.8814), AE(labeled만), AE(labeled+unlabeled) 세 가지를 임계값 방식 2종과 함께 비교하는 3×2 Ablation을 수행합니다.
 
-*Lecture connections: One-Class SVM (L7-8), Denoising AE / MLP+Dropout (L11-14)*
+*강의 연결: One-Class SVM (L7-8) / Denoising AE, MLP+Dropout (L11-14)*
 
-**Method C — K-Means Cluster-Distance Anomaly Detection (Novel)**
+**방법 C — K-Means 거리 기반 비지도 이상탐지 (독자적 방법, 가이드북에 없음)**
 
-The guidebook describes distance- and density-based anomaly scores as valid unsupervised approaches (§2.2.1) but implements only AE. We propose using K-Means centroid distance as the anomaly score: train K-Means on unlabeled data (no labels needed) and assign each sample's minimum centroid distance as its anomaly score. The first prototype (K-Means on all 795K, k=5–50) produced ROC-AUC 0.47 due to domain mismatch. The refined experiment will filter unlabeled data to the same machine and product type as the test set before K-Means training. This addresses a gap in the guidebook and directly compares with Method B's reconstruction-error scores.
+가이드북은 비지도 이상탐지의 이상 점수로 "거리 또는 밀도 기반"을 언급하지만(§2.2.1) AE만 구현하였습니다. 우리는 K-Means centroid까지의 거리를 이상 점수로 활용합니다. 1차 실험에서 도메인 불일치 문제를 확인하였으며, 개선 실험에서는 labeled 데이터와 동일한 기계·제품으로 필터링한 unlabeled를 사용하여 재학습합니다. 방법 B(복원 오차 기반)와의 정량 비교를 통해 각 접근의 특성 차이를 분석합니다.
 
-*Lecture connections: K-Means (L9-10) / Future extensions: DBSCAN, GMM, UMAP (L9-11)*
-
----
-
-## 3. Limitations and Future Work
-
-1. **K-Means domain mismatch** — Unlabeled data filtered to matching machine/product will be re-evaluated.
-2. **Denoising AE not yet implemented** — Guidebook §2.2.1 reproduction with unlabeled expansion is planned.
-3. **Temporal structure unused** — Process drift visible in EDA (anomalous batch near 2020-10-27) not yet modeled via sliding window CNN.
-4. **CN7/RG3 not separated** — KS test confirmed 22/24 variables differ significantly between products; separate models not attempted.
-5. **Semi-supervised pseudo-labeling** — Guidebook §2.2.2 (pseudo-labeling + entropy minimization) not yet reproduced; planned as future work.
+*강의 연결: K-Means (L9-10) / Future Work: DBSCAN, GMM, UMAP (L9-11)*
 
 ---
 
-## 4. Team Member Roles
+## 3. 팀원 역할
 
-| Member | Phase | Primary Contribution |
+| 팀원 | 담당 단계 | 주요 기여 |
 |---|---|---|
-| **Hyungun Cho** (Leader) | 0, 2, 5, 6, 7 | Project design, preprocessing ablation, Stacking, anomaly detection (OC-SVM, K-Means), Proposal |
-| [Member B] | 1, 3 | EDA visualization, linear baselines (LR, LDA, QDA, SVM) |
-| [Member C] | 4, 5 | Ensemble (RF, GBM, AdaBoost), MLP+Dropout, 1D-CNN, guidebook DNN reproduction |
+| [팀장 이름] (팀장) | Phase 1, 3 | 팀 운영, EDA 시각화, 선형 베이스라인 (LR, LDA, QDA, SVM) |
+| 조현건 | Phase 2, 5, 6, 7 | 전처리 Ablation 설계, CNN/Stacking, 결과 통합, 비지도 이상탐지 실험, Proposal 작성 |
+| [팀원 C 이름] | Phase 4, 5 | 앙상블 (RF, GBM, AdaBoost), MLP+Dropout, 1D-CNN, 가이드북 DNN 재현 |
 
-*(If 4-member team, Phase 4-A and Phase 7 AE implementation are split between Members B and C.)*
+*(4인 팀이면 Phase 4-A 차원축소, Phase 7 AE 구현을 추가 분담)*
 
 ---
 
-*Submitted by: Hyungun Cho (Team Leader) | NOVA50101 | 2026-05-17*
+*제출: [팀장 이름] (팀장) | NOVA50101 | 2026-05-17*
