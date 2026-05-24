@@ -1,8 +1,8 @@
 # NOVA50101 텀프로젝트 진행 가이드라인 — KAMP 사출성형
 
-> **작성자:** 조현건 | **v1:** 2026-05-10 | **v2 업데이트:** 2026-05-16  
+> **작성자:** 조현건 | **v1:** 2026-05-10 | **v2:** 2026-05-16 | **v3:** 2026-05-24 | **v4:** 2026-05-24  
 > **데이터셋:** KAMP 사출성형기 AI 데이터셋 (886,227행, 25개 유효 피처)  
-> **현재 상태:** Phase 1~6 완료 / Phase 7(비지도 이상탐지) 진행 중 / Proposal 5/17 마감
+> **현재 상태:** Phase 1~7 진행 중 / 방법 C v3 심사 비판 수용 후 재실행 중
 
 ---
 
@@ -17,8 +17,8 @@
 | Phase 4-B (앙상블·NN) | 5/27~6/2 | ✅ 완료 | MLP ROC **0.9497**, PR **0.4710** |
 | Phase 5 (CNN·Stacking) | 6/3~9 | ✅ 완료 | Stacking < 단일 MLP (반례) |
 | Phase 6 (통합 보고) | 6/10~ | ✅ 완료 | 운용점 Prec≥0.99 → Recall 32.4% |
-| **Phase 7 (이상탐지)** | **5/16~** | **⏳ 진행 중** | OC-SVM ROC 0.8814 / K-Means ROC 0.47 |
-| **Proposal 제출** | **5/17 마감** | **⏳ 초안 완성** | `docs/Proposal_NOVA50101.md` |
+| **Phase 7 (이상탐지)** | **5/16~** | **⏳ 진행 중** | OC-SVM ROC **0.8814** / K-Means ROC 0.4697 / 방법 C v3 실행 중 (심사 비판 수용) |
+| **Proposal 제출** | **5/17 마감** | **✅ 제출 완료** | 팀장 전정은 제출 / 방법 A·B·C 포함 |
 
 ---
 
@@ -43,57 +43,118 @@
 | Phase 4 | QDA → MLP | PR +0.119 ← **최대** |
 | Phase 5 | 단일→Stacking | PR −0.023 (반례) |
 
-### 1.3 비지도 이상탐지 1차 결과
+### 1.3 비지도 이상탐지 + 방법 C 결과
 
-| 방법 | ROC-AUC | 비고 |
-|---|---|---|
-| One-Class SVM | **0.8814** | 구현 완료, L7-8 |
-| K-Means (k=5) | 0.4697 | 도메인 불일치 실패 → 개선 예정 |
-| Denoising AE | — | 구현 예정 (가이드북 §2.2.1) |
+| 방법 | ROC-AUC | PR-AUC | 비고 |
+|---|---|---|---|
+| One-Class SVM | **0.8814** | 0.1765 | 구현 완료, L7-8 |
+| K-Means (k=5) | 0.4697 | — | 도메인 불일치 실패 (795K 혼재) |
+| 방법 C v2 RF+B | 0.9613 | 0.4735 | 버그수정 후 결과 (스케일러 불일치 잔존) |
+| 방법 C v2 RF+D | 0.9608 | 0.4653 | 동일 |
+| **방법 C v3** | 실행 중 | 실행 중 | 심사 비판 4개 FATAL 전면 수정 후 |
+| Denoising AE | — | — | 구현 예정 (가이드북 §2.2.1) |
+
+### 1.4 방법 C 심사 비판 수용 목록 (v3)
+
+| # | 심각도 | 비판 | 처리 |
+|---|---|---|---|
+| 1 | FATAL | 스케일러 공간 불일치 (unlabeled-fit → labeled-train 불일치) | sc_sel=labeled-only 통일 |
+| 2 | FATAL | 전략 B 소프트 누수 (teacher RF가 val fold 포함) | fold별 teacher RF |
+| 3 | FATAL | align_score 동등 가중치 (크기 2380배 피처 동일 취급) | 표준화 공간 + RF importance 가중 |
+| 4 | FATAL | 전략 C 방향벡터 raw space (Clamp 99% 지배) | 표준화 공간 방향벡터 |
+| 5 | MAJOR | 통계 검정 없이 IMPROVED 주장 | Wilcoxon signed-rank (n=5) |
+| 6 | MAJOR | n ablation 전략 C만 수행 | B·D 전략도 ablation |
+| 7 | MAJOR | ST threshold=0.80 근거 없음 | threshold sweep [0.5~0.8] |
+| 8 | MINOR | fillna(0) 검증 없음 | 결측 패턴 분석 셀 추가 |
 
 ---
 
-## 2. 현재 할 일 (Phase 7)
+## 2. 현재 할 일 (Phase 7 — 방법 A·B·C)
 
-### 2.1 Denoising AE 구현 (`run_autoencoder.py`)
+> **팀 회의 결정 (2026-05-24):** 방법 C → 방법 A 순으로 조현건이 진행. 방법 B는 다른 팀원 담당.
+
+### 2.1 방법 C — Semi-supervised Pseudo-labeling (조현건, 1순위)
+
+**현재: v3 재설계 완료 + 실행 중 (심사 비판 4개 FATAL 전면 수용)**
+
+#### 구현 현황 (노트북: `08_method_c_v2.ipynb`)
+
+| 버전 | 상태 | 핵심 내용 |
+|---|---|---|
+| v1 | ✅ 완료·실패 | DBSCAN noise → 기계정지 오염 28% 방향일치 |
+| v2 | ✅ 완료 (버그수정) | 기계정지 필터 + 4전략 + run_cv 버그 수정 |
+| v3 | ⏳ 실행 중 | FATAL 비판 4개 + MAJOR 3개 + MINOR 1개 전면 수용 |
+
+#### v3 핵심 설계 원칙
+
+```
+[스케일러 분리]
+  sc_vis = StandardScaler().fit(X_unl)   ← 시각화(PCA)만 사용
+  sc_sel = StandardScaler().fit(X_lab)   ← 전략 선택 + CV 학습 일관성
+
+[표준화 공간 방향벡터 (전략 C)]
+  defect_dir_sc = Xl_sc_sel[mask_d].mean() - Xl_sc_sel[mask_n].mean()
+  projC = Xu_sc_sel @ defect_dir_sc_n  ← 25피처 균등 기여
+
+[align_score 이중 지표]
+  uniform: 동등 가중치 (비교 기준)
+  weighted: RF importance 가중 (실질 중요도 반영)
+
+[전략 B 누수 차단]
+  run_cv_B_clean(): 각 fold에서 fold-train만으로 teacher RF → 누수 없는 pseudo 선택
+
+[통계 검정]
+  Wilcoxon signed-rank (n=5 fold 쌍별 차이)
+  p<0.05 → IMPROVED* / p≥0.05 → trend or ns
+
+[ablation]
+  B·C·D 전략 모두 n=[50,100,200,354,500,750,1000,2000]
+
+[Self-training]
+  threshold sweep [0.5, 0.6, 0.7, 0.8]
+  → threshold 무관하게 실패 시: 구조적 실패 확증 (DR=0.89% 극단 불균형 원인)
+```
+
+#### 핵심 실험 설계 제약
+
+- **pseudo-label 생성**: val fold 배제 (B는 fold별 teacher로 완전 차단)
+- **SMOTE**: labeled train에만 (pseudo는 SMOTE 후 append)
+- **Scaler**: labeled train fold로 fit → val, pseudo 모두 transform
+- **평가**: Wilcoxon p<0.05 기준, ROC+PR 양쪽 확인
+
+### 2.2 방법 A — Autoencoder 기반 이상탐지 (조현건, 2순위)
+
+**방법 C 결과 확인 후 진행. Proposal 방법 A = 가이드북 §2.2.1 재현 및 확장**
 
 ```python
-# 비교 구조
-Config 1: AE(labeled 양품 7,925행만)        ← 가이드북 §2.2.1 재현
-Config 2: AE(labeled 양품 + unlabeled 795K) ← 우리 확장
+# 3×2 ablation 구조
+Config 1: OC-SVM           ← labeled 양품만, 구현 완료 (ROC 0.8814)
+Config 2: AE (labeled만)   ← 가이드북 §2.2.1 재현
+Config 3: AE (labeled + EQUIP/PART 필터링 unlabeled) ← 우리 확장
 
-임계값 A: +5σ  (가이드북)
-임계값 B: PR 곡선 운용점 (우리)
+임계값 A: +5σ  (가이드북 방식)
+임계값 B: PR 곡선 val fold 운용점 (우리 방식)
 
-# 구조
+# AE 구조
 Encoder: FC(25→16→8) + Dropout(0.1) + ReLU
 Decoder: FC(8→16→25) + ReLU
 Loss: MSELoss, Optimizer: Adam(1e-3), Epochs: 50
-
-# 평가
-labeled val fold에서 ROC-AUC, PR-AUC 측정
 ```
 
-### 2.2 K-Means 개선 실험
+### 2.3 방법 B — K-Means 거리 기반 이상탐지 (다른 팀원 담당)
 
-```python
-# 실패 원인
-unlabeled 전체(795K) = 여러 기계·제품 혼재
-labeled = CN7/RG3 단일 기계만 → centroid 도메인 불일치
-
-# 개선
-1. unlabeled_data.csv에 EQUIP_NAME/PART_NAME 컬럼 존재 확인
-2. 있으면 → 동일 기계·제품으로 필터링 후 K-Means 재학습
-3. 1차(ROC 0.47) vs 2차 비교 결과 보고
+```
+개선 핵심: unlabeled_data.csv에서 EQUIP_NAME/PART_NAME으로 필터링 후 K-Means 재학습
+1차(ROC 0.47, 전체 795K) vs 2차(필터링 후) 비교 → 도메인 불일치 가설 직접 검증
 ```
 
 ---
 
-## 3. Proposal (5/17 마감)
+## 3. Proposal (✅ 5/17 제출 완료)
 
-- 제출 파일: `docs/Proposal_NOVA50101.md` → PDF 변환 후 Blackboard 업로드
-- 팀장(조현건)이 제출
-- 팀원 이름·역할 표 실명 채우기 필요
+- 제출 파일: `docs/Proposal_NOVA50101.md` → PDF 변환 후 Blackboard 업로드 완료
+- 팀장(전정은, 20268528)이 제출
+- 최종 팀원: 전정은(팀장, Phase 1·3) / 박상은(Phase 4·5) / 조현건(Phase 2·5·6·7)
 - 상세 방향성: `docs/Proposal_방향성_팀가이드.md`
 
 ---
@@ -140,30 +201,40 @@ labeled = CN7/RG3 단일 기계만 → centroid 도메인 불일치
 
 ## 6. 강의 알고리즘 커버리지 (완료 + 예정)
 
-| 강의 | 알고리즘 | 상태 |
-|---|---|---|
-| L4-6 | LR(L1/L2), LDA, QDA | ✅ |
-| L7-8 | SVM(linear/RBF), **One-Class SVM** | ✅ |
-| L8-10 | RF, AdaBoost, GBM, Stacking | ✅ |
-| L9-10 | **K-Means** (이상탐지), GMM·DBSCAN (Future) | ⚠️ |
-| L11 | PCA, **UMAP** (Future) | ✅ / Future |
-| L11-14 | MLP+Dropout, **Denoising AE** | ✅ / ⏳ |
-| L15-16 | 1D-CNN | ✅ |
+| 강의 | 알고리즘 | 상태 | 위치 |
+|---|---|---|---|
+| L4-6 | LR(L1/L2), LDA, QDA | ✅ | Phase 2~3 |
+| L7-8 | SVM(linear/RBF), **One-Class SVM** | ✅ | Phase 3 / Phase 7(방법 A 비교군) |
+| L8-10 | RF, AdaBoost, GBM, Stacking | ✅ | Phase 4~5 |
+| L9-10 | **K-Means** (이상탐지), **DBSCAN** (방법 C) | ✅ / ⏳ | Phase 7(방법 B·C) |
+| L9-10 | GMM (Future) | Future | §5 Future Work |
+| L11 | PCA, **UMAP** (방법 C 시각화) | ✅ / ⏳ | Phase 4-A / 방법 C |
+| L11-14 | MLP+Dropout, **Denoising AE** (방법 A) | ✅ / ⏳ | Phase 4 / Phase 7(방법 A) |
+| L15-16 | 1D-CNN | ✅ | Phase 5 |
 
 ---
 
 ## 7. 산출물 마스터 체크리스트
 
-### 즉시 (5/17)
-- [ ] `docs/Proposal_NOVA50101.md` → PDF → Blackboard 제출
-- [ ] 팀원 이름 실명 채우기
+### 5/17 마감 ✅ 완료
+- [x] `docs/Proposal_NOVA50101.md` → PDF → Blackboard 제출 (팀장 전정은)
+- [x] 팀원 이름 실명 채우기 (전정은·박상은·조현건)
+
+### 진행 중 (Phase 7)
+- [x] 방법 C v1: DBSCAN 기반 (실패 — 기계정지 오염 확인)
+- [x] 방법 C v2: 4전략 + run_cv 버그수정 (`notebooks/08_method_c_v2.ipynb`)
+- [x] 방법 C v2 심사 비판: 4개 FATAL 비판 수용 + 재설계
+- [ ] **방법 C v3 실행 중**: 심사 비판 전면 수용 버전 (`notebooks/08_method_c_v2.ipynb`)
+  - [ ] Wilcoxon 검정 포함 최종 결과 확인
+  - [ ] B·D 전략 n ablation 결과 확인
+  - [ ] ST threshold sweep 결과 확인
+- [ ] 방법 A: Denoising AE 구현 (`notebooks/09_autoencoder.ipynb`) — 방법 C 완료 후
+- [ ] 방법 B: K-Means 개선 실험 (다른 팀원) — 필터링 후 재학습
 
 ### 최종 제출 (학기말)
 - [ ] `reports/final_report.pdf` (8~12페이지)
 - [ ] `final_presentation.pptx` (16슬라이드, `reports/presentation_outline.md` 참조)
 - [ ] `Activity_Appendix.pdf` (팀원별 기여 표)
-- [ ] Denoising AE 구현 완료 (`run_autoencoder.py`)
-- [ ] K-Means 개선 실험 완료 (unlabeled 필터링)
 - [ ] `pytest tests/ -v` 전 통과 상태 유지
 
 ---
@@ -176,6 +247,12 @@ labeled = CN7/RG3 단일 기계만 → centroid 도메인 불일치
 4. **한글 폰트** — `sns.set_theme()` 이후 `setup_korean_font()` 호출
 5. **K-Means 도메인** — unlabeled 전체 학습 시 다기계·다제품 혼재 주의
 6. **AE val leakage** — labeled val fold 양품을 AE 학습에 포함하지 않기
+7. **기계정지 오염** — unlabeled에서 Barrel_Temp=0 & RPM=0 샘플이 44%: 필터 없이는 pseudo-label = 기계정지
+8. **스케일러 공간 불일치** — pseudo-label 선택 스케일러와 모델 학습 스케일러가 달라선 안 됨. sc_sel=labeled-fit 통일
+9. **align_score raw 공간** — raw 공간에서 계산하면 대형 피처(Clamp_Open ~500)가 지배. 반드시 표준화 공간에서 계산
+10. **Teacher RF 누수** — 전략 B teacher는 ALL labeled로 학습 시 val fold 정보 포함 → fold별 teacher로 차단
+11. **통계 검정 생략** — 5-fold 결과에서 mean > std만으로 IMPROVED 주장은 과도. Wilcoxon signed-rank 필수
+12. **n ablation 부분 수행** — 전략별로 최적 n이 다를 수 있음. 모든 전략에 동일한 n sweep 적용할 것
 
 ---
 
@@ -195,4 +272,9 @@ labeled = CN7/RG3 단일 기계만 → centroid 도메인 불일치
 
 ---
 
-*v1: 2026-05-10 (Phase 0 제안서 마감 기준) | v2: 2026-05-16 (Phase 1~6 완료, Phase 7 진행 중)*
+| `notebooks/08_method_c_v2.ipynb` | 방법 C v3 (심사 비판 수용 — 현재 실행 중) |
+| `_gen_mc2.py` | 방법 C v3 노트북 생성 스크립트 |
+
+---
+
+*v1: 2026-05-10 | v2: 2026-05-16 | v3: 2026-05-24 (방법 C v2) | v4: 2026-05-24 (심사 비판 수용 v3)*

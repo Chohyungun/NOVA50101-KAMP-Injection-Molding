@@ -250,3 +250,94 @@ Precision≥0.99 운용 시 MLP가 불량 71건 중 약 23건 탐지 가능하�
 ### 핵심 1줄
 
 **Stacking이 단일 MLP를 넘지 못해 '무조건 스태킹이 낫다'는 가정의 반례. 운용점 Prec≥0.99에서 MLP가 Recall 32.4%로 최고 — Phase 6 보고서 핵심 그림 확정.**
+
+---
+
+## Phase 7 — 이상탐지 1차 + 방법 C v1·v2·v3 (2026-05-24)
+
+### 비지도 이상탐지 (07_anomaly_detection.ipynb)
+
+| 방법 | ROC-AUC | PR-AUC | 비고 |
+|---|---|---|---|
+| One-Class SVM (labeled 양품만) | 0.8814 ± 0.027 | 0.1765 ± 0.087 | 구현 완료 |
+| K-Means (k=5, unlabeled 전체) | 0.4697 | — | 도메인 불일치 실패 (795K 혼재) |
+
+### 방법 C — Pseudo-labeling 진행 경과
+
+#### v1 실패 원인 규명 (08_pseudo_labeling.ipynb)
+- EllipticEnvelope pseudo-defect = **기계정지 상태 샘플** (Barrel_Temp=0, RPM=0)
+- Feature 방향일치율 28% (랜덤 50% 이하) → pseudo-defect이 오히려 노이즈
+
+#### v2 핵심 개선 결과 (08_method_c_v2.ipynb — 이전 버전)
+- 기계정지 44% 제거 (31,310행 → 생산상태 39,870행)
+- Feature alignment 대폭 개선: A=52%, B=80%, C=60%, D=100%(cosine=0.993)
+- **버그 수정 적용** — run_cv fold 인덱스 문제 (pseudo-label이 학습에 포함되지 않던 문제)
+- 5-fold CV (RF): B=+0.0317 ROC / +0.0256 PR, D=+0.0312 ROC / +0.0174 PR ("IMPROVED")
+
+> **v2 결과에 대한 심사 비판 (4개 FATAL, 3개 MAJOR):**
+> 1. 스케일러 공간 불일치: unlabeled-fit scaler로 전략 선택 → labeled-train scaler로 모델 학습
+> 2. 전략 B 소프트 누수: teacher RF가 CV val fold 포함한 전체 7996개로 학습
+> 3. align_score 동등 가중치: Clamp_Open(diff=187) vs Clamp_Close(diff=0.079) 동일 1표
+> 4. 전략 C 방향벡터 raw space: Clamp_Open_Position이 내적값 99% 지배 (단변량 threshold와 동일)
+> 5. Wilcoxon 검정 없이 "IMPROVED" 레이블 (σ=0.032 vs 개선량 0.032)
+> 6. n ablation이 전략 C에만 수행됨 (B·D 미수행)
+> 7. ST threshold=0.80 근거 없음 (ablation 미수행)
+
+#### v3 재설계 (현재 실행 중 — 심사 비판 전면 수용)
+
+| 수정 항목 | v2 | v3 |
+|---|---|---|
+| 전략 선택 스케일러 | sc.fit(X_unl) (unlabeled) | sc_sel.fit(X_lab) (labeled) |
+| align_score | raw 공간, 동등 가중치 | 표준화 공간, RF importance 가중 |
+| 전략 C 방향벡터 | raw space (Clamp 지배) | 표준화 space (25피처 균등) |
+| 전략 B CV | ALL labeled teacher (누수) | fold별 teacher RF (누수 차단) |
+| 통계 검정 | 없음 (mean > std 기준) | Wilcoxon signed-rank (n=5) |
+| n ablation | 전략 C만 | 전략 B·C·D 모두 |
+| Self-training | threshold=0.80 고정 | threshold sweep [0.5, 0.6, 0.7, 0.8] |
+
+> **v3 최종 결과 (2026-05-24 완료)**
+
+#### v3 Feature Alignment (표준화 공간, RF importance 가중)
+
+| 전략 | uniform% | cos | weighted% | cos_w | 비고 |
+|---|---|---|---|---|---|
+| A: EllipticEnv | 52% | 0.151 | 51% | -0.001 | 보통 |
+| B: RF Confidence | 64% | 0.336 | 72% | 0.365 | 양호 |
+| C: Direction Proj | 60% | 0.150 | 61% | -0.077 | v2 cosine 0.969→0.150 ↓ (raw 지배 해소 확인) |
+| D: kNN Defect | 100% | 0.938 | 100% | 0.879 | 우수 |
+
+#### v3 5-fold CV (Wilcoxon signed-rank 포함)
+
+| 전략 | ROC-AUC | vs Base | PR-AUC | vs Base | Wilcoxon |
+|---|---|---|---|---|---|
+| RF Base | 0.9296 | — | 0.4479 | — | — |
+| RF + A | 0.9378 | +0.0081 | 0.4421 | -0.0058 | trend(p=0.312) |
+| **RF + B (fold-teacher)** | **0.9271** | **-0.0025** | **0.4441** | **-0.0039** | **ns(p=0.781)** |
+| RF + C | 0.9401 | +0.0105 | 0.4423 | -0.0056 | trend(p=0.312) |
+| **RF + D** | **0.9531** | **+0.0235** | **0.4572** | **+0.0093** | **IMPROVED*(p=0.031)** |
+| MLP + B (fold-teacher) | 0.9485 | +0.0189 | 0.4475 | -0.0005 | trend(p=0.156) |
+
+#### v3 핵심 발견
+
+1. **전략 B 누수 확인됨**: v2에서 ROC+0.032 "IMPROVED"가 fold-teacher 적용 후 ROC-0.003 ns로 붕괴  
+   → v2의 B 개선은 teacher RF가 val fold 정보를 포함했기 때문 (소프트 데이터 누수)
+2. **전략 D만 유일하게 유의**: Wilcoxon p=0.031, ROC+0.024, PR+0.009  
+   → labeled 불량 71개의 kNN 이웃 선택은 누수 없이 실질적 개선 달성
+3. **전략 C raw→scaled 변화**: cosine 0.969→0.150 — raw 공간의 높은 cosine이 Clamp_Open_Position 단변량 지배 때문이었음 확인. 표준화 후 실질 방향정렬은 훨씬 낮음
+4. **Self-training**: threshold=0.7 최적(PR=0.4491)이지만 baseline(0.4479) 수준. DR=0.89% 극단 불균형에서 구조적 한계
+
+#### v3 최종 판정
+
+**방법 C VALID** (Wilcoxon p=0.031 전략 D). 단 "어떤 전략인가"와 "누수 없는 선택인가"가 성패를 가름.  
+v2 B전략의 허위 개선 발견이 오히려 더 큰 방법론적 기여 — 준지도학습의 핵심 함정 실증.
+
+### 핵심 발견 (방법 C 전체)
+
+1. **기계정지 오염**: unlabeled 44%가 기계정지 상태 — 필터링 없이는 어떤 이상탐지도 실패
+2. **align_score**: raw 공간에서는 단일 대형 피처가 지배 → 표준화 공간에서만 의미있는 방향정렬
+3. **전략 D (kNN)**: labeled 불량 71개 이웃 기반 — 방향일치 100% / cosine 0.993 → 가장 순수한 전략
+4. **Self-training**: DR=0.89% 극단 불균형에서 RF 확신도 기반 ST는 구조적으로 불리 (pseudo-불량 6개/전체)
+
+### 핵심 1줄
+
+**기계정지 오염 제거 + 표준화 공간 전략 + fold별 teacher RF가 방법 C의 방법론적 완결성을 결정한다. 단순히 "pseudo-label을 추가했다"가 아니라 어떤 공간에서 어떻게 선택했는가가 핵심.**
