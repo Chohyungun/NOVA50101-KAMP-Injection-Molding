@@ -1,193 +1,126 @@
-# KAMP Injection Molding Defect Prediction — Step-by-Step Ablation + Unsupervised Anomaly Detection
+# KAMP 사출성형 공정 불량 예측
 
-> **NOVA50101 Introduction to Artificial Intelligence for Industrial AI**  
-> Step-by-step ablation study on KAMP injection molding data, with unsupervised anomaly detection using unlabeled 795K samples.
+**NOVA50101 인공지능학개론 텀프로젝트**  
+팀원: 전정은(20268528) · 박상은(20268521) · 조현건(20268532)
 
----
-
-## Project Overview
-
-Using the KAMP injection molding AI dataset (KAIST·UNIST), we (1) systematically measure the contribution of each processing stage to defect prediction performance, and (2) explore unsupervised anomaly detection methods that exploit the large unlabeled dataset — neither of which is addressed in the official KAMP guidebook.
-
-**Key originality vs. guidebook:**
-
-| Item | Guidebook | Ours |
-|---|---|---|
-| Imbalance handling | Concept only (no code) | 4 methods × 10 combos, 5-fold ablation |
-| Evaluation | accuracy + recall | ROC-AUC + PR-AUC + operating point |
-| Model selection | AE → SVM → DNN, pick best | Systematic ablation across 6 linear / 4 ensemble / CNN / Stacking |
-| SVM claim | SVM = best | QDA outperforms SVM on PR-AUC |
-| Unlabeled 795K | AE (good-only) + pseudo-labeling | OC-SVM ROC 0.88 / K-Means ROC 0.47 + failure analysis |
+KAMP 사출성형기 AI 데이터셋(7,996행 레이블 / 795,315행 무레이블)으로 불량 예측 모델을 단계별로 구축하고, 무레이블 데이터를 활용한 준지도 학습(방법 C)까지 확장한다.
 
 ---
 
-## Results
+## 결과 요약
 
-### Phase 1–6 (Supervised Classification)
+### Phase 1-6 지도학습
 
-| Phase | Model | ROC-AUC | PR-AUC |
+| Phase | 모델 | ROC-AUC | PR-AUC |
 |---|---|---|---|
-| Phase 2 (preprocessing) | LR-L2 + SMOTE | 0.9311 | 0.2413 |
-| Phase 3 (linear) | **QDA** (reg=0.01) | 0.9344 | 0.3526 |
-| Phase 4-A (dim. reduction) | TreeTop-15 + LR | 0.9380 | 0.2899 |
-| **Phase 4-B (ensemble·NN)** | **MLP [256,128,64]** | **0.9497** | **0.4710** |
-| Phase 5 (CNN) | CNN1D (32→64) | 0.9472 | 0.4501 |
-| Phase 5 (Stacking) | meta-LR | 0.9462 | 0.4484 |
-| Guidebook DNN (reproduced) | DNN [128,64,32] | 0.9468 | 0.4655 |
+| 2 (전처리 ablation) | LR-L2 + SMOTE | 0.9311 | 0.2413 |
+| 3 (선형 베이스라인) | **QDA** (reg=0.01) | 0.9344 | 0.3526 |
+| 4-A (차원축소) | TreeTop-15 + LR | 0.9380 | 0.2899 |
+| **4-B (앙상블·NN)** | **MLP [256,128,64]** | **0.9497** | **0.4710** |
+| 5 (CNN) | CNN1D (32->64) | 0.9472 | 0.4501 |
+| 5 (Stacking) | meta-LR | 0.9462 | 0.4484 |
+| 가이드북 DNN 재현 | DNN [128,64,32] | 0.9468 | 0.4655 |
 
-**Operating point (Precision ≥ 0.99):** MLP Recall = 32.4% (≈23 of 71 defects detected)
+운용점 (Precision >= 0.99): MLP Recall = 32.4% (71개 불량 중 23개 탐지)
 
-### Phase 7 (Unsupervised Anomaly Detection, 1st prototype)
+### Phase 7 이상탐지 + 방법 C 준지도학습
 
-| Method | Training data | ROC-AUC (5-fold) | PR-AUC |
-|---|---|---|---|
-| One-Class SVM (nu=0.02) | labeled good 7,925 | **0.8814 ± 0.027** | 0.1765 |
-| K-Means (k=5, best) | unlabeled 795,315 | 0.4697 ± 0.063 | 0.1444 |
-| Denoising AE | planned | — | — |
+| 방법 | 학습 데이터 | ROC-AUC | PR-AUC | 비고 |
+|---|---|---|---|---|
+| OC-SVM | labeled 양품 7,925 | 0.8814 +- 0.027 | 0.1765 | Phase 7 |
+| K-Means (k=5) | unlabeled 795K | 0.4697 | 0.1444 | Phase 7, 도메인 불일치 |
+| **방법 C - 전략 D (kNN)** | labeled 불량 seed | **0.9531** | **0.4572** | **Wilcoxon p=0.031** |
 
-K-Means failure cause: unlabeled data spans many machines/products while labeled data is CN7/RG3 single-machine only → domain mismatch. Refinement (filter unlabeled to same machine/product) planned.
+방법 C 핵심 발견: 전략 B v2의 ROC+0.032 "개선"이 teacher RF 데이터 누수였음을 확인. fold별 teacher로 차단하자 ns(-0.003)로 붕괴. n_pseudo ablation에서 전략 D n=50이 n=2000보다 PR 기준으로 우수 (품질 > 양).
 
 ---
 
-## Dataset
+## 데이터셋
 
-| Item | Value |
+| 항목 | 값 |
 |---|---|
-| Source | [KAMP Platform](https://www.kamp-ai.kr) — Injection Molding Machine AI Dataset |
-| Total rows | 886,227 (8 CSVs) |
-| Labeled (supervised) | `labeled_data.csv` 7,996 rows |
-| Unlabeled | `unlabeled_data.csv` 795,315 rows |
-| Effective features | 25 (removed 11 zero-variance + 1 ID) |
-| Defect rate | 0.89% (71 / 7,996) |
+| 출처 | [KAMP 플랫폼](https://www.kamp-ai.kr) - 사출성형기 AI 데이터셋 |
+| 전체 행 | 886,227 (CSV 8개) |
+| 레이블 데이터 | `labeled_data.csv` 7,996행 (불량 71개, 0.89%) |
+| 무레이블 데이터 | `unlabeled_data.csv` 795,315행 |
+| 유효 피처 | 25개 (분산=0인 10개 + near-zero 1개 + ID 제거) |
+| 방법 C 필터 후 | 71,180행 (CN7/RG3 + 동일 장비) -> 생산상태 39,870행 |
 
-> **Note:** `data/raw/` CSVs are not included (KAMP copyright). Download from [KAMP platform](https://www.kamp-ai.kr) and place under `data/raw/`.
+`data/raw/` CSV는 KAMP 저작권으로 미포함. [KAMP 플랫폼](https://www.kamp-ai.kr)에서 다운로드 후 `data/raw/`에 배치.
 
 ---
 
-## Directory Structure
+## 디렉토리 구조
 
 ```
 IAAI_Term_project/
-├── src/
-│   ├── utils.py                # set_seed, setup_korean_font
-│   ├── data.py                 # load_raw, get_fold, generate_splits
-│   ├── preprocess.py           # scaler, resampler, fit_transform_fold
-│   ├── evaluate.py             # ROC-AUC, PR-AUC, operating point
-│   └── models/
-│       ├── linear.py           # LR, LDA, QDA
-│       ├── svm.py              # SVM-linear, SVM-RBF
-│       ├── tree.py             # RF, AdaBoost, GBM
-│       ├── nn.py               # MLP (PyTorch), CNN1D
-│       └── stacking.py         # OOF stacking meta-learner
+├── data/
+│   ├── raw/               <- .gitignore (다운로드 필요)
+│   └── splits/            <- 5-fold 인덱스 (fold_0~4.npy)
+│
 ├── notebooks/
-│   ├── 00_EDA.ipynb            # EDA + class distribution
+│   ├── 00_EDA.ipynb
 │   ├── 01_preprocessing_ablation.ipynb
 │   ├── 02_linear_baselines.ipynb
 │   ├── 03_dimensionality_reduction.ipynb
 │   ├── 04_ensemble_nn.ipynb
 │   ├── 05_cnn_aux_stacking.ipynb
 │   ├── 06_results_summary.ipynb
-│   └── 07_anomaly_detection.ipynb  # OC-SVM / K-Means / AE
-├── run_eda.py
-├── run_eda_enhanced.py
-├── run_dim_reduction.py
-├── run_baseline_figures.py
-├── run_phase4_figures.py
-├── run_phase5.py
-├── run_anomaly_detection.py    # OC-SVM + K-Means (Phase 7)
-├── tests/                      # pytest unit tests
+│   ├── 07_anomaly_detection.ipynb
+│   ├── 08_pseudo_labeling.ipynb   <- 방법 C v1 (이상탐지 9종 비교 + 실패 분석)
+│   ├── 08_method_c_v2.ipynb       <- 방법 C v3 최종 (4전략 + Wilcoxon)
+│   └── 08a~08i_eda.ipynb          <- 이상탐지 기법별 상세 EDA
+│
+├── src/
+│   ├── data.py
+│   ├── preprocess.py
+│   └── evaluate.py
+│
 ├── results/
-│   ├── figures/                # NB{nn}_fig{n}_*.png + anomaly_*.png
-│   ├── tables/                 # ablation CSVs + anomaly_detection_results.csv
+│   ├── figures/           <- 모든 그래프 (NB0x_fig*.png)
+│   ├── tables/            <- ablation CSV
 │   ├── ablation_summary.md
 │   └── decisions.md
+│
 ├── docs/
-│   ├── Proposal_NOVA50101.md       # ← Proposal submission draft
-│   ├── Proposal_방향성_팀가이드.md  # internal team guide
+│   ├── method_c_report.md          <- 방법 C 분석 보고서 (팀 공유용)
+│   ├── Proposal_NOVA50101.md
+│   ├── Proposal_방향성_팀가이드.md
+│   ├── TERM_PROJECT_GUIDELINE.md
 │   ├── NOVA50101_Default_Final_Project_EN.md
 │   ├── 04.-Guidebook_InjectionMolding_EN.md
-│   └── TERM_PROJECT_GUIDELINE.md
-├── reports/
-│   ├── project_report_full.md
-│   ├── presentation_outline.md
-│   ├── notion_draft.md
-│   └── 데이터셋_최종_결정_보고서_v3.md
-├── data/
-│   ├── raw/                    # ← .gitignore (download required)
-│   └── splits/                 # 5-fold indices (fold_0~4.npy)
-├── AGENT_INSTRUCTIONS.md
+│   └── 04.-Guidebook_사출성형기.pdf
+│
+├── _gen_all.py            <- 08a~08i 노트북 생성기
+├── _gen_mc2.py            <- 08_method_c_v2 노트북 생성기
+├── pyproject.toml
 └── requirements.txt
 ```
 
 ---
 
-## Setup & Run
-
-### 1. Install dependencies
+## 실행
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### 2. Download data
+노트북은 `00` -> `08_method_c_v2` 순서로 실행한다. 모든 Phase가 `data/splits/fold_*.npy`를 공유한다.
 
-Download 8 CSVs from [KAMP platform](https://www.kamp-ai.kr) → "사출성형기 AI 데이터셋":
-
-```
-data/raw/labeled_data.csv
-data/raw/unlabeled_data.csv
-data/raw/moldset_labeled.csv
-data/raw/supervised_label_cn7.csv
-data/raw/moldset_labeled_cn7.csv
-data/raw/moldset_unlabeled_cn7.csv
-data/raw/moldset_labeled_rg3.csv
-data/raw/moldset_unlabeled_rg3.csv
-```
-
-### 3. Run Phase 1–6
-
+방법 C 노트북만 재생성할 경우:
 ```bash
-python run_eda.py
-python run_eda_enhanced.py
-python run_dim_reduction.py
-python run_baseline_figures.py
-python run_phase4_figures.py
-python run_phase5.py
-# or run notebooks/00~06 in order
-```
-
-### 4. Run anomaly detection (Phase 7)
-
-```bash
-python run_anomaly_detection.py
-# Generates: results/figures/NB07_fig{1-3}_*.png
-#            results/tables/anomaly_detection_results.csv
-```
-
-### 5. Tests
-
-```bash
-pytest tests/ -v
+python _gen_mc2.py
+jupyter nbconvert --to notebook --execute --inplace notebooks/08_method_c_v2.ipynb
 ```
 
 ---
 
-## Algorithms Used (lecture-covered only)
+## 가이드북 대비 차별점
 
-| Group | Algorithm | Lecture |
+| 항목 | 가이드북 | 본 프로젝트 |
 |---|---|---|
-| Linear / Generative | LR (L1/L2), LDA, QDA | L4–6 |
-| Margin | SVM (linear, RBF), **One-Class SVM** | L7–8 |
-| Tree / Ensemble | RF, AdaBoost, GBM, Stacking | L7–10 |
-| Clustering | **K-Means**, GMM, DBSCAN (planned) | L9–10 |
-| Dim. Reduction | PCA, VarianceThreshold, TreeTop-K, **UMAP** | L9–11 |
-| Neural Net | MLP (Dropout, ReLU, Adam), **Denoising AE** | L11–15 |
-| Deep Learning | 1D-CNN (PyTorch) | L13–16 |
-| Evaluation | ROC-AUC, PR-AUC, F1, operating point, Stratified 5-fold CV | L5–6 |
-
----
-
-## License
-
-Data: [KAMP platform terms of use](https://www.kamp-ai.kr)  
-Code: MIT
+| 불균형 처리 | 개념 소개만 | 4종 x 10조합 ablation, 5-fold |
+| 평가지표 | accuracy + recall | ROC-AUC + PR-AUC (Accuracy 미사용) |
+| 모델 선택 | AE -> SVM -> DNN 순차 | 선형 6종 / 앙상블 4종 / CNN / Stacking 체계적 비교 |
+| SVM 주장 | SVM이 최적 | QDA가 PR-AUC에서 SVM 상회 |
+| 무레이블 795K | AE(양품) + pseudo-label 언급 | 이상탐지 9종 비교 + 준지도학습 4전략 + 누수 검증 |
