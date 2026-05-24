@@ -33,9 +33,37 @@ KAMP 사출성형 데이터셋에서 레이블이 붙은 데이터는 7,996행�
 
 ### 1.2 방법 C의 전체 아이디어
 
-1. Unlabeled 데이터에서 이상탐지 기법으로 "불량 후보"를 선별 (pseudo-label 생성)
-2. Labeled 불량 71개 + pseudo-defect N개를 합쳐 분류기를 학습
-3. 준지도 학습 전후 ROC-AUC / PR-AUC를 5-fold CV로 비교
+흐름은 세 단계로 나뉜다.
+
+#### 1.2.1 Unlabeled에서 불량 후보 선별 (pseudo-label 생성)
+
+Unlabeled 795K 중 동일 장비·부품으로 필터링한 71,180행을 대상으로 이상탐지 기법을 적용한다. 기법은 Isolation Forest, LOF, HBOS, COPOD, GMM, K-Means, OC-SVM, Elliptic Envelope, KNN Distance 9종을 비교하고, labeled 7,996행 기준 ROC-AUC로 순위를 매긴다. 최고 성능 기법으로 unlabeled 각 샘플에 이상 점수를 부여한 뒤, 상위 `contamination`%를 불량 pseudo-label로 지정한다. `contamination`은 labeled 불량률 0.89%와 맞추는 것이 기본 설정이다 — 동일 공정에서 동일한 비율의 불량이 발생한다는 가정.
+
+v3에서는 이상탐지 단순 점수 방식 대신 4가지 전략을 제시한다.
+
+| 전략 | 선별 기준 |
+|---|---|
+| A: EllipticEnvelope | labeled 양품 기준 Mahalanobis 거리가 가장 먼 unlabeled 샘플 |
+| B: RF Confidence | fold-teacher RF가 불량 확률을 가장 높게 예측한 unlabeled 샘플 |
+| C: Direction Projection | 표준화 공간에서 "양품 평균 -> 불량 평균" 방향으로 가장 멀리 투영된 샘플 |
+| D: kNN Defect | labeled 불량 71개와 가장 가까운(kNN 거리 기준) unlabeled 샘플 |
+
+각 전략은 선별한 pseudo-defect가 labeled 불량과 얼마나 피처 분포가 유사한지를 `align_score`(방향 일치율 + cosine similarity)로 검증한다.
+
+#### 1.2.2 Labeled + Pseudo-defect 혼합 학습
+
+Labeled 불량 71개에 pseudo-defect N개를 추가해 분류기를 학습한다. 이 때 N은 별도 ablation으로 [50, 100, 200, 354, 500, 750, 1000, 2000]을 탐색한다.
+
+학습 과정에서 주의할 점이 두 가지다.
+
+- **SMOTE 적용 순서**: pseudo-defect를 추가한 뒤 train fold 안에서 SMOTE를 적용한다. 불량 class가 labeled 불량 + pseudo-defect로 구성되므로, SMOTE의 k_neighbors를 `min(5, 불량수-1)`로 동적 조정한다.
+- **스케일러 일관성**: 전략 선택에 쓴 `sc_sel`(labeled-fit)을 CV 학습에도 동일하게 적용한다. fold마다 `sc_f = StandardScaler().fit(X_tr_l)`로 별도 fit하고, 이 스케일러로 unlabeled pseudo-defect도 변환한다. fold 간 스케일러 drift를 허용하되, 선택 단계와 학습 단계의 공간 기준을 분리하지 않는 설계다.
+
+#### 1.2.3 5-fold CV로 준지도 학습 효과 검증
+
+labeled only baseline과 각 전략을 동일한 fold_*.npy 인덱스 아래 비교한다. fold별 ROC 차이 5개를 Wilcoxon signed-rank test(단측, alternative="greater")로 검정한다. p < 0.05면 IMPROVED*, 양의 평균만 있고 유의하지 않으면 trend, 개선도 없으면 ns로 판정한다.
+
+fold 5개로 검정력이 낮아 p < 0.05를 달성하기 어렵다는 점을 감안해야 한다. 그럼에도 전략 D(RF)는 p=0.031을 달성했고, 이것이 방법 C에서 유일하게 검증된 개선이다.
 
 핵심은 **pseudo-label이 실제 공정 불량과 얼마나 유사한가**다. 이것이 충족되지 않으면 어떤 분류기를 써도 개선이 없다 — v1 실패가 이를 직접 보여준다.
 
