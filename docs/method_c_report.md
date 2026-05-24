@@ -12,9 +12,9 @@
 2. [데이터 개요 및 핵심 제약](#2-데이터-개요-및-핵심-제약)
 3. [EDA — 데이터 구조 파악](#3-eda--데이터-구조-파악)
 4. [이상탐지 기법 9종 비교 (NB08 Step 2)](#4-이상탐지-기법-9종-비교)
-5. [v1 실패 분석 — 기계정지 오염 문제](#5-v1-실패-분석--기계정지-오염-문제)
-6. [방법론 설계 변천 v1 → v2 → v3](#6-방법론-설계-변천)
-7. [v3 핵심 설계 원칙 상세](#7-v3-핵심-설계-원칙-상세)
+5. [v1이 실패한 이유 — 기계정지 오염](#5-v1이-실패한-이유--기계정지-오염)
+6. [v1에서 v3까지 — 무엇이 바뀌었나](#6-v1에서-v3까지--무엇이-바뀌었나)
+7. [v3 설계 세부 사항](#7-v3-설계-세부-사항)
 8. [실험 결과 — 5-fold CV](#8-실험-결과--5-fold-cv)
 9. [n_pseudo Ablation](#9-n_pseudo-ablation)
 10. [Self-training Threshold Ablation](#10-self-training-threshold-ablation)
@@ -33,39 +33,40 @@ KAMP 사출성형 데이터셋에서 레이블이 붙은 데이터는 7,996행�
 
 ### 1.2 방법 C의 전체 아이디어
 
-흐름은 세 단계로 나뉜다.
+#### 1.2.1 Unlabeled에서 불량 후보 선별
 
-#### 1.2.1 Unlabeled에서 불량 후보 선별 (pseudo-label 생성)
+**pseudo-label이란** unlabeled 데이터에 사람이 직접 달지 않고 알고리즘이 추정한 레이블이다. 방법 C는 이상탐지 기법으로 unlabeled에서 "불량처럼 보이는 샘플"을 골라내 pseudo-label을 붙이는 방식을 쓴다.
 
-Unlabeled 795K 중 동일 장비·부품으로 필터링한 71,180행을 대상으로 이상탐지 기법을 적용한다. 기법은 Isolation Forest, LOF, HBOS, COPOD, GMM, K-Means, OC-SVM, Elliptic Envelope, KNN Distance 9종을 비교하고, labeled 7,996행 기준 ROC-AUC로 순위를 매긴다. 최고 성능 기법으로 unlabeled 각 샘플에 이상 점수를 부여한 뒤, 상위 `contamination`%를 불량 pseudo-label로 지정한다. `contamination`은 labeled 불량률 0.89%와 맞추는 것이 기본 설정이다 — 동일 공정에서 동일한 비율의 불량이 발생한다는 가정.
+먼저 unlabeled 795K 중 동일 장비·부품으로 필터링한 71,180행을 대상으로 이상탐지 기법 9종(Isolation Forest, LOF, HBOS, COPOD, GMM, K-Means, OC-SVM, Elliptic Envelope, KNN Distance)을 실행한다. 각 기법은 labeled 7,996행을 기준으로 ROC-AUC를 평가해 순위를 매긴다. 최고 성능 기법으로 unlabeled 각 샘플에 이상 점수를 부여하고, 상위 **contamination%**(이상으로 의심할 비율)에 해당하는 샘플을 불량 pseudo-label로 지정한다. contamination은 labeled 불량률 0.89%와 맞추는 것이 기본값이다 — 같은 공정이면 비슷한 비율로 불량이 발생할 것이라는 전제.
 
-v3에서는 이상탐지 단순 점수 방식 대신 4가지 전략을 제시한다.
+그런데 이상탐지 점수만으로 선별하면 "실제 불량과 비슷한 샘플"이 아니라 "단순히 분포에서 벗어난 샘플"이 뽑힌다. 이것이 v1이 실패한 이유다(Section 5 참조). v3에서는 선별 기준을 4가지 전략으로 다변화했다.
 
-| 전략 | 선별 기준 |
-|---|---|
-| A: EllipticEnvelope | labeled 양품 기준 Mahalanobis 거리가 가장 먼 unlabeled 샘플 |
-| B: RF Confidence | fold-teacher RF가 불량 확률을 가장 높게 예측한 unlabeled 샘플 |
-| C: Direction Projection | 표준화 공간에서 "양품 평균 -> 불량 평균" 방향으로 가장 멀리 투영된 샘플 |
-| D: kNN Defect | labeled 불량 71개와 가장 가까운(kNN 거리 기준) unlabeled 샘플 |
+| 전략 | 선별 기준 | 직관 |
+|---|---|---|
+| A: EllipticEnvelope | labeled 양품 분포의 공분산 기준 Mahalanobis 거리가 가장 먼 샘플 | 양품과 가장 다른 샘플 |
+| B: RF Confidence | RF를 먼저 labeled로 학습한 뒤, unlabeled에서 불량 확률이 가장 높은 샘플 | 분류기가 불량이라고 확신하는 샘플 |
+| C: Direction Projection | 표준화 공간에서 "양품 평균→불량 평균" 방향으로 가장 멀리 투영된 샘플 | 불량과 같은 방향으로 이탈한 샘플 |
+| D: kNN Defect | labeled 불량 71개와 가장 가까운 샘플(kNN 거리 기준) | labeled 불량과 가장 닮은 샘플 |
 
-각 전략은 선별한 pseudo-defect가 labeled 불량과 얼마나 피처 분포가 유사한지를 `align_score`(방향 일치율 + cosine similarity)로 검증한다.
+각 전략이 뽑은 pseudo-defect가 실제로 labeled 불량과 피처 분포가 비슷한지는 **align_score**로 확인한다. 25개 피처 중 불량과 같은 방향으로 이탈한 피처 비율(방향 일치율, 50%=무작위 수준)과 코사인 유사도를 동시에 계산한다.
 
 #### 1.2.2 Labeled + Pseudo-defect 혼합 학습
 
-Labeled 불량 71개에 pseudo-defect N개를 추가해 분류기를 학습한다. 이 때 N은 별도 ablation으로 [50, 100, 200, 354, 500, 750, 1000, 2000]을 탐색한다.
+선별한 pseudo-defect N개를 labeled 불량 71개에 더해 분류기(RF, MLP)를 학습한다. N은 고정하지 않고 [50, 100, 200, 354, 500, 750, 1000, 2000]을 따로 실험해 최적값을 찾는다.
 
-학습 과정에서 주의할 점이 두 가지다.
+학습할 때 두 가지를 신경 써야 한다.
 
-- **SMOTE 적용 순서**: pseudo-defect를 추가한 뒤 train fold 안에서 SMOTE를 적용한다. 불량 class가 labeled 불량 + pseudo-defect로 구성되므로, SMOTE의 k_neighbors를 `min(5, 불량수-1)`로 동적 조정한다.
-- **스케일러 일관성**: 전략 선택에 쓴 `sc_sel`(labeled-fit)을 CV 학습에도 동일하게 적용한다. fold마다 `sc_f = StandardScaler().fit(X_tr_l)`로 별도 fit하고, 이 스케일러로 unlabeled pseudo-defect도 변환한다. fold 간 스케일러 drift를 허용하되, 선택 단계와 학습 단계의 공간 기준을 분리하지 않는 설계다.
+**SMOTE 순서**: 불량 클래스가 labeled 불량 + pseudo-defect로 늘어났기 때문에, SMOTE(합성 소수 클래스 오버샘플링)를 적용하면 불량이 많아진 만큼 k_neighbors를 `min(5, 불량수-1)`로 자동 조정해야 에러가 나지 않는다. SMOTE는 fold 안에서만 fit하고, train 데이터에만 적용한다. val fold에는 절대 손대지 않는다.
 
-#### 1.2.3 5-fold CV로 준지도 학습 효과 검증
+**스케일러**: 전략 선택에 쓴 스케일러(`sc_sel`, labeled 전체로 fit한 StandardScaler)와 CV 학습에 쓰는 스케일러(`sc_f`, fold train set으로 fit)는 별개다. 전략 선택 때는 labeled 전체 분포 기준으로 unlabeled를 변환해야 일관성이 있고, CV 학습 때는 val 정보 누수를 막으려면 train fold로만 fit해야 한다. 두 스케일러를 혼용하면 안 된다.
 
-labeled only baseline과 각 전략을 동일한 fold_*.npy 인덱스 아래 비교한다. fold별 ROC 차이 5개를 Wilcoxon signed-rank test(단측, alternative="greater")로 검정한다. p < 0.05면 IMPROVED*, 양의 평균만 있고 유의하지 않으면 trend, 개선도 없으면 ns로 판정한다.
+#### 1.2.3 5-fold CV로 효과 검증
 
-fold 5개로 검정력이 낮아 p < 0.05를 달성하기 어렵다는 점을 감안해야 한다. 그럼에도 전략 D(RF)는 p=0.031을 달성했고, 이것이 방법 C에서 유일하게 검증된 개선이다.
+Phase 1~6 전체와 동일한 fold_*.npy 인덱스를 사용해 baseline(labeled only)과 각 전략을 비교한다. fold별로 ROC 차이를 5개 구하고, Wilcoxon signed-rank test(단측)로 그 차이가 0보다 유의하게 큰지 검정한다. p < 0.05면 **IMPROVED\***, p가 높아도 평균 차이가 양수면 **trend**, 개선이 없으면 **ns**로 표기한다.
 
-핵심은 **pseudo-label이 실제 공정 불량과 얼마나 유사한가**다. 이것이 충족되지 않으면 어떤 분류기를 써도 개선이 없다 — v1 실패가 이를 직접 보여준다.
+fold가 5개뿐이라 검정력이 낮다. 검정력이 낮으면 실제로 개선이 있어도 p < 0.05 달성이 어렵다는 뜻이다. 그런 조건에서도 전략 D(RF 기준)가 p=0.031을 달성했다.
+
+결국 성패를 가르는 건 pseudo-label의 품질이다. labeled 불량과 비슷하지 않은 샘플을 아무리 많이 추가해도 분류기는 나빠지거나 제자리다 — 이 점은 Section 5에서 수치로 확인할 수 있다.
 
 ---
 
@@ -191,7 +192,7 @@ threshold는 labeled 불량률 0.89%와 동일하게 설정했다. 이론적으�
 
 ---
 
-## 5. v1 실패 분석 — 기계정지 오염 문제
+## 5. v1이 실패한 이유 — 기계정지 오염
 
 ### 5.1 pseudo-label 검증 결과 (NB08 Section 8)
 
@@ -241,9 +242,9 @@ QDA는 클래스별 공분산 행렬로 결정 경계를 정의한다. 진짜 �
 
 ---
 
-## 6. 방법론 설계 변천
+## 6. v1에서 v3까지 — 무엇이 바뀌었나
 
-### 6.1 v1 → v2: 기계정지 오염 인식
+### 6.1 v1 → v2: 생산상태 필터 추가
 
 v1에서는 CN7/RG3 필터만 적용했다. v2에서 생산상태 필터를 추가했다.
 
@@ -255,7 +256,7 @@ mask_prod = (X_unl_df['Barrel_Temperature_1'] >= 200) & (X_unl_df['Average_Screw
 - 기계정지 제거: 31,310개 (44.0%)
 - 생산상태 유지: 39,870개 (56.0%)
 
-### 6.2 v2 → v3: 방법론 비판 수용
+### 6.2 v2 → v3: 설계 결함 8개 수정
 
 v2는 4가지 pseudo-labeling 전략을 설계하고 "IMPROVED"를 주장했으나, 심사 과정에서 8개 문제점이 지적됐다.
 
@@ -270,11 +271,9 @@ v2는 4가지 pseudo-labeling 전략을 설계하고 "IMPROVED"를 주장했으�
 | MAJOR-7 | ST threshold=0.80 근거 없음 | 중요 |
 | MINOR-8 | fillna(0) 검증 없음 | 경미 |
 
-v2에서 전략 B가 ROC+0.032 "IMPROVED"를 기록했던 것은 **FATAL-2 누수 때문**이었다. v3에서 누수를 차단하자 -0.003 ns(p=0.781)로 붕괴했다. 이 발견 자체가 v3의 가장 중요한 기여다.
+v2에서 전략 B가 ROC+0.032 "IMPROVED"를 기록했던 것은 **FATAL-2 누수 때문**이었다. v3에서 누수를 차단하자 -0.003 ns(p=0.781)로 붕괴했다.
 
-### 6.3 v3: 전면 재설계
-
-v3에서 적용한 수정 사항:
+### 6.3 v3 변경 내용
 
 1. `sc_sel = StandardScaler().fit(X_lab)` — labeled 전체로 학습한 스케일러를 전략 선택·CV 모두에 통일
 2. `run_cv_B_clean()` — fold별 teacher RF (val fold 정보 완전 차단)
@@ -287,9 +286,7 @@ v3에서 적용한 수정 사항:
 
 ---
 
-## 7. v3 핵심 설계 원칙 상세
-
-`08_method_c_v2.ipynb`의 핵심 설계를 이해하기 위해 필요한 내용이다.
+## 7. v3 설계 세부 사항
 
 ### 7.1 두 개의 스케일러
 
@@ -433,7 +430,7 @@ Wilcoxon signed-rank test는 t-검정과 달리 정규성 가정이 필요 없�
 
 **전략 B의 v2 허위 개선 확인**
 
-v2에서 전략 B가 IMPROVED(+0.032)를 기록했던 것은 teacher RF가 val fold를 포함한 7,996개 전체로 학습하면서 발생한 소프트 누수 때문이었다. v3에서 fold별 teacher로 누수를 차단하자 ROC -0.003 ns(p=0.781)가 됐다. **이 발견이 방법 C v3의 가장 큰 기여다.** 준지도 학습에서 teacher 모델의 누수가 얼마나 심각한 허위 양성을 만드는지를 실증했다.
+v2에서 전략 B가 IMPROVED(+0.032)를 기록했던 것은 teacher RF가 val fold를 포함한 7,996개 전체로 학습하면서 발생한 소프트 누수 때문이었다. v3에서 fold별 teacher로 누수를 차단하자 ROC -0.003 ns(p=0.781)가 됐다. 준지도 학습에서 teacher 모델의 누수가 얼마나 심각한 허위 양성을 만드는지 수치로 확인한 결과다.
 
 **MLP에서 전략 D가 trend에 그친 이유**
 
@@ -459,7 +456,7 @@ MLP base 자체가 ROC=0.9494로 높아 개선 여지가 좁다. PR +0.0311은 �
 
 n=50은 작은 수다. labeled 불량 71개에서 가장 가까운 unlabeled 샘플 50개만 선택한다는 뜻이다. 소수지만 품질이 높아 효과적이다. n이 커질수록 불량 영역에서 멀어진 샘플들이 포함되어 효과가 희석된다.
 
-n=354(DR×unlabeled 수)에서도 ROC 개선이 있지만 n=50보다 낮다. 이는 pseudo-defect 수보다 **품질(labeled 불량과의 유사성)**이 더 중요함을 시사한다.
+n=354(DR×unlabeled 수)에서도 ROC 개선이 있지만 n=50보다 낮다. 숫자보다 **품질(labeled 불량과의 유사성)**이 학습에 더 큰 영향을 준다.
 
 **전략 B는 n=2000에서 최적**
 
@@ -517,7 +514,7 @@ DR=0.89% 극단 불균형에서 분류기는 대부분의 unlabeled 샘플을 �
 
 **기여 1 — 기계정지 오염 확인 및 제거**
 
-CN7/RG3 필터 후에도 44%의 기계정지 레코드가 잔존함을 확인하고, 생산상태 필터(`Barrel_Temperature_1 >= 200 & Average_Screw_RPM > 0`)로 제거했다. 이 단계 없이는 어떤 이상탐지 기반 pseudo-labeling도 무의미하다.
+CN7/RG3 필터 후에도 44%의 기계정지 레코드가 잔존함을 확인하고, 생산상태 필터(`Barrel_Temperature_1 >= 200 & Average_Screw_RPM > 0`)로 제거했다.
 
 **기여 2 — 전략 B v2 허위 개선 발견**
 
